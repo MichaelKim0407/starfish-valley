@@ -7,8 +7,7 @@ from . import JsonFileProcessor
 
 
 class FishFileProcessor(JsonFileProcessor):
-    def __init__(self, parent):
-        super().__init__(parent, os.path.join('Data', 'Fish'))
+    FILENAME = os.path.join('Data', 'Fish')
 
     @staticmethod
     @returns(list)
@@ -58,7 +57,6 @@ class FishFileProcessor(JsonFileProcessor):
             'name': localized_name,
 
             'time_ranges': cls.parse_time_ranges(time_ranges),
-            'seasons': seasons.split(' '),
             'weather': cls.parse_weather(weather),
             'min_level': int(min_size),
 

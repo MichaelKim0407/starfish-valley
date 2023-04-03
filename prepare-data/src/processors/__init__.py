@@ -40,6 +40,8 @@ class LanguageProcessor:
     def _processors(self) -> typing.Iterable['FileProcessor']:
         from .fish import FishFileProcessor
         yield FishFileProcessor(self)
+        from .locations import LocationFileProcessor
+        yield LocationFileProcessor(self)
 
     @cached_property
     def data(self):
@@ -62,14 +64,34 @@ class LanguageProcessor:
 
 
 class FileProcessor:
-    def __init__(self, parent: LanguageProcessor, filename: str, ext: str):
+    FILENAME: str = None
+    EXT: str = None
+    USE_LOCALE: bool = True
+
+    def __init__(
+            self,
+            parent: LanguageProcessor,
+            filename: str = None,
+            ext: str = None,
+            use_locale: bool = None,
+    ):
         self.parent = parent
+
+        if filename is None:
+            filename = self.FILENAME
         self.filename = filename
+
+        if ext is None:
+            ext = self.EXT
         self.ext = ext
+
+        if use_locale is None:
+            use_locale = self.USE_LOCALE
+        self.use_locale = use_locale
 
     @cached_property
     def _filename(self) -> str:
-        if self.parent.lang_code is None:
+        if (not self.use_locale) or self.parent.lang_code is None:
             return f'{self.filename}.{self.ext}'
         else:
             return f'{self.filename}.{self.parent.lang_code}.{self.ext}'
@@ -83,8 +105,7 @@ class FileProcessor:
 
 
 class JsonFileProcessor(FileProcessor):
-    def __init__(self, parent, filename):
-        super().__init__(parent, filename, 'json')
+    EXT = 'json'
 
     @cached_property
     def raw_data(self):
