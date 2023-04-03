@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  dependency-lock:
+    profiles:
+      - dependency-lock
+    build:
+      context: .
+      dockerfile: dockerfiles/pip-tools.dockerfile
+    volumes:
+      - ./prepare-data/requirements:/prepare-data/requirements
+    working_dir: /prepare-data/requirements
+
+  prepare-data:
+    build:
+      context: .
+      dockerfile: dockerfiles/prepare-data.dockerfile
+    volumes:
+      - ./prepare-data:/prepare-data
