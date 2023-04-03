@@ -1,5 +1,6 @@
 import json
 import os
+import typing
 from functools import cached_property
 
 
@@ -35,13 +36,21 @@ class LanguageProcessor:
     def language(self) -> str:
         return self.LANGUAGES[self.lang_code]
 
+    @property
+    def _processors(self) -> typing.Iterable['FileProcessor']:
+        from .fish import FishFileProcessor
+        yield FishFileProcessor(self)
+
     @cached_property
     def data(self):
-        return {
+        result = {
             'version': self.version_name,
             'lang_code': self.lang_code,
             'language': self.language,
         }
+        for file_processor in self._processors:
+            file_processor(result)
+        return result
 
     @cached_property
     def output_file_name(self) -> str:
@@ -50,3 +59,34 @@ class LanguageProcessor:
     def __call__(self):
         with open(self.output_file_name, 'w') as f:
             json.dump(self.data, f)
+
+
+class FileProcessor:
+    def __init__(self, parent: LanguageProcessor, filename: str, ext: str):
+        self.parent = parent
+        self.filename = filename
+        self.ext = ext
+
+    @cached_property
+    def _filename(self) -> str:
+        if self.parent.lang_code is None:
+            return f'{self.filename}.{self.ext}'
+        else:
+            return f'{self.filename}.{self.parent.lang_code}.{self.ext}'
+
+    @cached_property
+    def source_file_name(self) -> str:
+        return os.path.join(self.parent.source, self._filename)
+
+    def __call__(self, result: dict):
+        raise NotImplementedError
+
+
+class JsonFileProcessor(FileProcessor):
+    def __init__(self, parent, filename):
+        super().__init__(parent, filename, 'json')
+
+    @cached_property
+    def raw_data(self):
+        with open(self.source_file_name) as f:
+            return json.load(f)
