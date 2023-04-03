@@ -1,9 +1,8 @@
-import os
+from processors import LanguageProcessor
 
 
 def prepare_data(source, output, version_name):
-    print(source, output, version_name)
-    print(os.listdir(source))
+    LanguageProcessor.run_all(source, output, version_name)
 
 
 def main(args=None):
