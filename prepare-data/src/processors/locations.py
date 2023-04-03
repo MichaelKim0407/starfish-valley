@@ -5,6 +5,7 @@ from functools import cached_property
 from returns import returns
 
 from . import JsonFileProcessor
+from .location_names import LocationNameProcessor
 
 FishId = typing.TypeVar('FishId', bound=str)
 LocationVariation = typing.TypeVar('LocationVariation', bound=int)
@@ -23,16 +24,9 @@ class LocationFileProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Data', 'Locations')
     USE_LOCALE = False
 
-    # https://stardewvalleywiki.com/Modding:Fish_data#Spawn_locations
-    LOCATION_VARIATIONS = {
-        'Forest': {
-            0: 'river',
-            1: 'pond',
-        },
-        'IslandWest': {
-            1: 'ocean',
-            2: 'freshwater',
-        },
+    SKIP_LOCATIONS = {
+        'fishingGame',
+        'Temp',
     }
 
     @staticmethod
@@ -60,20 +54,36 @@ class LocationFileProcessor(JsonFileProcessor):
     @returns(skip_empty_values)
     def data(self) -> dict[LocationKey, dict[Season, dict[FishId, LocationVariation]]]:
         for key, value in self.raw_data.items():
+            if key in self.SKIP_LOCATIONS:
+                continue
             yield key, self.parse_location_value(value)
 
-    @classmethod
-    def get_location_full_name(cls, location_key: LocationKey, location_var: LocationVariation) -> typing.Iterator[str]:
-        if location_key not in cls.LOCATION_VARIATIONS:
-            yield location_key
+    @staticmethod
+    @returns(list)
+    def get_fish_location_data(
+            result: dict,
+            location_key: LocationKey,
+            location_var: LocationVariation,
+            season: Season,
+    ) -> list[dict[str, typing.Any]]:
+        if location_key in LocationNameProcessor.LOCATION_VARIATIONS and location_var == -1:
+            for var in LocationNameProcessor.LOCATION_VARIATIONS[location_key]:
+                yield {
+                    'key': location_key,
+                    'variation': var,
+                    'variation_orig': location_var,
+                    'name': result['location_names'][location_key][var],
+                    'season': season,
+                }
             return
 
-        if location_var != -1:
-            yield f'{location_key} ({cls.LOCATION_VARIATIONS[location_key][location_var]})'
-            return
-
-        for var in cls.LOCATION_VARIATIONS[location_key].values():
-            yield f'{location_key} ({var})'
+        yield {
+            'key': location_key,
+            'variation': location_var,
+            'variation_orig': location_var,
+            'name': result['location_names'][location_key][location_var],
+            'season': season,
+        }
 
     def __call__(self, result: dict):
         for location_key, location_fish in self.data.items():
@@ -82,8 +92,9 @@ class LocationFileProcessor(JsonFileProcessor):
                     fish_data = result['fish'][fish_id]
                     if 'locations' not in fish_data:
                         fish_data['locations'] = []
-                    for location_name in self.get_location_full_name(location_key, location_var):
-                        fish_data['locations'].append({
-                            'name': location_name,
-                            'season': season,
-                        })
+                    fish_data['locations'].extend(self.get_fish_location_data(
+                        result,
+                        location_key,
+                        location_var,
+                        season,
+                    ))
