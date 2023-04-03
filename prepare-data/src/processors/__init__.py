@@ -21,15 +21,15 @@ class LanguageProcessor:
     }
 
     @classmethod
-    def run_all(cls, source: str, output: str, version_name: str):
+    def run_all(cls, game_data_dir: str, output: str, game_version: str):
         for lang_code in cls.LANGUAGES:
-            processor = cls(source, output, version_name, lang_code)
+            processor = cls(game_data_dir, output, game_version, lang_code)
             processor()
 
-    def __init__(self, source: str, output: str, version_name: str, lang_code: str):
-        self.source = source
+    def __init__(self, game_data_dir: str, output: str, game_version: str, lang_code: str):
+        self.game_data_dir = game_data_dir
         self.output = output
-        self.version_name = version_name
+        self.game_version = game_version
         self.lang_code = lang_code
 
     @cached_property
@@ -48,7 +48,7 @@ class LanguageProcessor:
     @cached_property
     def data(self):
         result = {
-            'version': self.version_name,
+            'version': self.game_version,
             'lang_code': self.lang_code,
             'language': self.language,
         }
@@ -58,7 +58,7 @@ class LanguageProcessor:
 
     @cached_property
     def output_file_name(self) -> str:
-        return os.path.join(self.output, f'{self.version_name} ({self.language}).json')
+        return os.path.join(self.output, f'{self.game_version} ({self.language}).json')
 
     def __call__(self):
         with open(self.output_file_name, 'w') as f:
@@ -100,7 +100,7 @@ class FileProcessor:
 
     @cached_property
     def source_file_name(self) -> str:
-        return os.path.join(self.parent.source, self._filename)
+        return os.path.join(self.parent.game_data_dir, self._filename)
 
     def __call__(self, result: dict):
         raise NotImplementedError

@@ -17,5 +17,5 @@ services:
       dockerfile: dockerfiles/prepare-data.dockerfile
     volumes:
       - ./prepare-data:/prepare-data
-      - ${GAME_DATA_SOURCE_DIR}:/source
-      - ./data:/data
+      - ${GAME_DIR}:/game
+      - ./data:/output
