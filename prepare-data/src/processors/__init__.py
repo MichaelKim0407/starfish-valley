@@ -37,11 +37,13 @@ class LanguageProcessor:
         return self.LANGUAGES[self.lang_code]
 
     @property
-    def _processors(self) -> typing.Iterable['FileProcessor']:
+    def _processors(self) -> typing.Iterable['AbstractProcessor']:
         from .fish import FishProcessor
         yield FishProcessor(self)
         from .locations import LocationProcessor
         yield LocationProcessor(self)
+        from .bundles import AllBundleProcessor
+        yield AllBundleProcessor(self)
 
     @cached_property
     def data(self):
@@ -63,7 +65,15 @@ class LanguageProcessor:
             json.dump(self.data, f)
 
 
-class FileProcessor:
+class AbstractProcessor:
+    def __init__(self, parent: LanguageProcessor):
+        self.parent = parent
+
+    def __call__(self, result: dict):
+        raise NotImplementedError
+
+
+class FileProcessor(AbstractProcessor):
     FILENAME: str = None
     EXT: str = None
     USE_LOCALE: bool = True
@@ -75,7 +85,7 @@ class FileProcessor:
             ext: str = None,
             use_locale: bool = None,
     ):
-        self.parent = parent
+        super().__init__(parent)
 
         if filename is None:
             filename = self.FILENAME
@@ -99,9 +109,6 @@ class FileProcessor:
     @cached_property
     def source_file_name(self) -> str:
         return os.path.join(self.parent.game_data_dir, self._filename)
-
-    def __call__(self, result: dict):
-        raise NotImplementedError
 
 
 class JsonFileProcessor(FileProcessor):

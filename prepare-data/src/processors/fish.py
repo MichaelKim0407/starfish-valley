@@ -44,11 +44,10 @@ class FishProcessor(JsonFileProcessor):
         else:
             return (weather,)
 
-    @classmethod
-    def parse_fish_value(cls, value):
+    def parse_fish_value(self, value) -> dict | None:
         # https://stardewvalleywiki.com/Modding:Fish_data#Fish_data_and_spawn_criteria
         name, difficulty, *other_fields = value.split('/')
-        if difficulty in cls.DIFFICULTY_SKIP:
+        if difficulty in self.DIFFICULTY_SKIP:
             return
 
         (
@@ -62,25 +61,28 @@ class FishProcessor(JsonFileProcessor):
             spawn_multi,
             depth_multi,
             min_level,
-            *language_specific_fields,
+            *other_fields_2,
         ) = other_fields
 
-        if language_specific_fields:
-            localized_name = language_specific_fields[0]
+        if self.parent.lang_code is not None:
+            try:
+                localized_name = other_fields_2[-1]
+            except IndexError:
+                localized_name = name
         else:
             localized_name = name
 
         return {
-            cls.RESULT_EN_NAME: name,
-            cls.RESULT_LOCALIZED_NAME: localized_name,
+            self.RESULT_EN_NAME: name,
+            self.RESULT_LOCALIZED_NAME: localized_name,
 
-            cls.RESULT_TIME_RANGES: cls.parse_time_ranges(time_ranges),
-            cls.RESULT_WEATHER: cls.parse_weather(weather),
-            cls.RESULT_MIN_LEVEL: int(min_size),
+            self.RESULT_TIME_RANGES: self.parse_time_ranges(time_ranges),
+            self.RESULT_WEATHER: self.parse_weather(weather),
+            self.RESULT_MIN_LEVEL: int(min_size),
 
-            cls.RESULT_MAX_DEPTH: int(max_depth),
-            cls.RESULT_SPAWN_MULTI: float(spawn_multi),
-            cls.RESULT_DEPTH_MULTI: float(depth_multi),
+            self.RESULT_MAX_DEPTH: int(max_depth),
+            self.RESULT_SPAWN_MULTI: float(spawn_multi),
+            self.RESULT_DEPTH_MULTI: float(depth_multi),
         }
 
     @cached_property
