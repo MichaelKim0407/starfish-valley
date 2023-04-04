@@ -40,8 +40,6 @@ class LanguageProcessor:
     def _processors(self) -> typing.Iterable['FileProcessor']:
         from .fish import FishProcessor
         yield FishProcessor(self)
-        from .location_names import LocationNameProcessor
-        yield LocationNameProcessor(self)
         from .locations import LocationProcessor
         yield LocationProcessor(self)
 

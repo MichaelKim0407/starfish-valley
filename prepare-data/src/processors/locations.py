@@ -1,5 +1,6 @@
 import os
 import typing
+from collections import defaultdict
 from functools import cached_property
 
 from returns import returns
@@ -19,6 +20,13 @@ def skip_empty_values(iterable):
         if not value:
             continue
         yield key, value
+
+
+def merge(iterable):
+    result = defaultdict(list)
+    for key, value in iterable:
+        result[key].append(value)
+    return dict(result)
 
 
 class LocationProcessor(JsonFileProcessor):
@@ -67,44 +75,52 @@ class LocationProcessor(JsonFileProcessor):
                 continue
             yield key, self.parse_location_value(value)
 
-    @classmethod
-    @returns(list)
+    @cached_property
+    def _location_name_processor(self) -> LocationNameProcessor:
+        return LocationNameProcessor(self.parent)
+
+    @property
+    def location_name_lookup(self):
+        return self._location_name_processor.location_names
+
     def get_fish_location_data(
-            cls,
-            result: dict,
+            self,
             location_key: LocationKey,
             location_var: LocationVariation,
             season: Season,
-    ) -> list[dict[str, typing.Any]]:
+    ) -> typing.Iterator[dict[str, typing.Any]]:
         if location_key in LocationNameProcessor.LOCATION_VARIATIONS and location_var == -1:
             for var in LocationNameProcessor.LOCATION_VARIATIONS[location_key]:
                 yield {
-                    cls.RESULT_LOCATION_KEY: location_key,
-                    cls.RESULT_LOCATION_VARIATION: var,
-                    cls.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
-                    cls.RESULT_LOCATION_NAME: result[LocationNameProcessor.RESULT_KEY][location_key][var],
-                    cls.RESULT_SEASON: season,
+                    self.RESULT_LOCATION_KEY: location_key,
+                    self.RESULT_LOCATION_VARIATION: var,
+                    self.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
+                    self.RESULT_LOCATION_NAME: self.location_name_lookup[location_key][var],
+                    self.RESULT_SEASON: season,
                 }
             return
 
         yield {
-            cls.RESULT_LOCATION_KEY: location_key,
-            cls.RESULT_LOCATION_VARIATION: location_var,
-            cls.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
-            cls.RESULT_LOCATION_NAME: result[LocationNameProcessor.RESULT_KEY][location_key][location_var],
-            cls.RESULT_SEASON: season,
+            self.RESULT_LOCATION_KEY: location_key,
+            self.RESULT_LOCATION_VARIATION: location_var,
+            self.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
+            self.RESULT_LOCATION_NAME: self.location_name_lookup[location_key][location_var],
+            self.RESULT_SEASON: season,
         }
 
-    def __call__(self, result: dict):
+    @cached_property
+    @returns(merge)
+    def rearranged_data(self) -> dict[FishId, list]:
         for location_key, location_fish in self.data.items():
             for season, season_fish in location_fish.items():
                 for fish_id, location_var in season_fish.items():
-                    fish_data = result[FishProcessor.RESULT_KEY][fish_id]
-                    if self.RESULT_SUBKEY not in fish_data:
-                        fish_data[self.RESULT_SUBKEY] = []
-                    fish_data[self.RESULT_SUBKEY].extend(self.get_fish_location_data(
-                        result,
-                        location_key,
-                        location_var,
-                        season,
-                    ))
+                    for fish_location in self.get_fish_location_data(
+                            location_key,
+                            location_var,
+                            season,
+                    ):
+                        yield fish_id, fish_location
+
+    def __call__(self, result: dict):
+        for fish_id, fish_locations in self.rearranged_data.items():
+            result[FishProcessor.RESULT_KEY][fish_id][self.RESULT_SUBKEY] = fish_locations
