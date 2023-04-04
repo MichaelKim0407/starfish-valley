@@ -1,10 +1,10 @@
 import os
 import typing
-from collections import defaultdict
 from functools import cached_property
 
 from returns import returns
 
+from utils import skip_empty_values, merge
 from . import JsonFileProcessor
 from .fish import FishProcessor
 from .location_names import LocationNameProcessor
@@ -13,20 +13,6 @@ FishId = typing.TypeVar('FishId', bound=str)
 LocationVariation = typing.TypeVar('LocationVariation', bound=int)
 Season = typing.TypeVar('Season', bound=str)
 LocationKey = typing.TypeVar('LocationKey', bound=str)
-
-
-def skip_empty_values(iterable):
-    for key, value in iterable:
-        if not value:
-            continue
-        yield key, value
-
-
-def merge(iterable):
-    result = defaultdict(list)
-    for key, value in iterable:
-        result[key].append(value)
-    return dict(result)
 
 
 class LocationProcessor(JsonFileProcessor):
