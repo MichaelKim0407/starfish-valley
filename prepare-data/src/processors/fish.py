@@ -9,6 +9,24 @@ from . import JsonFileProcessor
 class FishFileProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Data', 'Fish')
 
+    WEATHER_MAP = {
+        'both': ('sunny', 'rainy'),
+    }
+
+    DIFFICULTY_SKIP = {'trap'}
+
+    RESULT_KEY = 'fish'
+
+    RESULT_ID = 'id'
+    RESULT_EN_NAME = 'en_name'
+    RESULT_LOCALIZED_NAME = 'name'
+    RESULT_TIME_RANGES = 'time_ranges'
+    RESULT_WEATHER = 'weather'
+    RESULT_MIN_LEVEL = 'min_level'
+    RESULT_MAX_DEPTH = 'max_depth'
+    RESULT_SPAWN_MULTI = 'spawn_multi'
+    RESULT_DEPTH_MULTI = 'depth_multi'
+
     @staticmethod
     @returns(list)
     def parse_time_ranges(time_ranges: str) -> list[tuple[int, int]]:
@@ -19,18 +37,18 @@ class FishFileProcessor(JsonFileProcessor):
         for i in range(0, len(hours), 2):
             yield hours[i], hours[i + 1]
 
-    @staticmethod
-    def parse_weather(weather: str) -> tuple[str, ...]:
-        if weather == 'both':
-            return 'sunny', 'rainy'
+    @classmethod
+    def parse_weather(cls, weather: str) -> tuple[str, ...]:
+        if weather in cls.WEATHER_MAP:
+            return cls.WEATHER_MAP[weather]
         else:
-            return weather,
+            return (weather,)
 
     @classmethod
     def parse_fish_value(cls, value):
         # https://stardewvalleywiki.com/Modding:Fish_data#Fish_data_and_spawn_criteria
         name, difficulty, *other_fields = value.split('/')
-        if difficulty == 'trap':
+        if difficulty in cls.DIFFICULTY_SKIP:
             return
 
         (
@@ -53,16 +71,16 @@ class FishFileProcessor(JsonFileProcessor):
             localized_name = name
 
         return {
-            'en_name': name,
-            'name': localized_name,
+            cls.RESULT_EN_NAME: name,
+            cls.RESULT_LOCALIZED_NAME: localized_name,
 
-            'time_ranges': cls.parse_time_ranges(time_ranges),
-            'weather': cls.parse_weather(weather),
-            'min_level': int(min_size),
+            cls.RESULT_TIME_RANGES: cls.parse_time_ranges(time_ranges),
+            cls.RESULT_WEATHER: cls.parse_weather(weather),
+            cls.RESULT_MIN_LEVEL: int(min_size),
 
-            'max_depth': int(max_depth),
-            'spawn_multi': float(spawn_multi),
-            'depth_multi': float(depth_multi),
+            cls.RESULT_MAX_DEPTH: int(max_depth),
+            cls.RESULT_SPAWN_MULTI: float(spawn_multi),
+            cls.RESULT_DEPTH_MULTI: float(depth_multi),
         }
 
     @cached_property
@@ -72,8 +90,8 @@ class FishFileProcessor(JsonFileProcessor):
             parsed = self.parse_fish_value(value)
             if not parsed:
                 continue
-            parsed['id'] = int(key)
+            parsed[self.RESULT_ID] = int(key)
             yield key, parsed
 
     def __call__(self, result: dict):
-        result['fish'] = self.data
+        result[self.RESULT_KEY] = self.data

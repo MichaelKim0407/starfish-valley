@@ -44,6 +44,8 @@ class LocationNameProcessor(JsonFileProcessor):
         },
     }
 
+    RESULT_KEY = 'location_names'
+
     def get_location_name(self, location_key: str) -> str:
         string_key, extra = self.LOCATION_NAME_KEYS[location_key]
         if string_key is None:
@@ -71,4 +73,4 @@ class LocationNameProcessor(JsonFileProcessor):
             yield location_key, self.process_location(location_key)
 
     def __call__(self, result: dict):
-        result['location_names'] = self.location_names
+        result[self.RESULT_KEY] = self.location_names
