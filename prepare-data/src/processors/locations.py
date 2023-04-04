@@ -5,7 +5,7 @@ from functools import cached_property
 from returns import returns
 
 from . import JsonFileProcessor
-from .fish import FishFileProcessor
+from .fish import FishProcessor
 from .location_names import LocationNameProcessor
 
 FishId = typing.TypeVar('FishId', bound=str)
@@ -21,7 +21,7 @@ def skip_empty_values(iterable):
         yield key, value
 
 
-class LocationFileProcessor(JsonFileProcessor):
+class LocationProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Data', 'Locations')
     USE_LOCALE = False
 
@@ -99,7 +99,7 @@ class LocationFileProcessor(JsonFileProcessor):
         for location_key, location_fish in self.data.items():
             for season, season_fish in location_fish.items():
                 for fish_id, location_var in season_fish.items():
-                    fish_data = result[FishFileProcessor.RESULT_KEY][fish_id]
+                    fish_data = result[FishProcessor.RESULT_KEY][fish_id]
                     if self.RESULT_SUBKEY not in fish_data:
                         fish_data[self.RESULT_SUBKEY] = []
                     fish_data[self.RESULT_SUBKEY].extend(self.get_fish_location_data(

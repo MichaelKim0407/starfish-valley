@@ -38,12 +38,12 @@ class LanguageProcessor:
 
     @property
     def _processors(self) -> typing.Iterable['FileProcessor']:
-        from .fish import FishFileProcessor
-        yield FishFileProcessor(self)
+        from .fish import FishProcessor
+        yield FishProcessor(self)
         from .location_names import LocationNameProcessor
         yield LocationNameProcessor(self)
-        from .locations import LocationFileProcessor
-        yield LocationFileProcessor(self)
+        from .locations import LocationProcessor
+        yield LocationProcessor(self)
 
     @cached_property
     def data(self):

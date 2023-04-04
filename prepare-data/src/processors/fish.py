@@ -6,7 +6,7 @@ from returns import returns
 from . import JsonFileProcessor
 
 
-class FishFileProcessor(JsonFileProcessor):
+class FishProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Data', 'Fish')
 
     WEATHER_MAP = {
