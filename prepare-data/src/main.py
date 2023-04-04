@@ -1,6 +1,7 @@
 import json
 import os
 
+import utils
 from processors import LanguageProcessor
 
 
@@ -12,13 +13,26 @@ def get_game_version(game_dir):
     return version
 
 
-def prepare_data(
-        game_data_dir,
-        output,
-        game_version,
-        **kwargs,
-):
-    LanguageProcessor.run_all(game_data_dir, output, game_version)
+def prepare_data(game_data_dir, output, game_version):
+    return LanguageProcessor.run_all(game_data_dir, output, game_version)
+
+
+def update_index(output, game_version, processed_files):
+    index_file = os.path.join(output, 'index.json')
+    try:
+        with open(index_file) as f:
+            index_data = json.load(f)
+    except FileNotFoundError:
+        index_data = {'versions': []}
+
+    if game_version not in index_data['versions']:
+        index_data['versions'].append(game_version)
+        index_data['versions'].sort(key=utils.game_version_sort_key, reverse=True)
+
+    index_data[game_version] = processed_files
+
+    with open(index_file, 'w') as f:
+        json.dump(index_data, f)
 
 
 def main(args=None):
@@ -30,11 +44,8 @@ def main(args=None):
     args = parser.parse_args(args)
 
     game_version = get_game_version(args.game_dir)
-
-    prepare_data(
-        **vars(args),
-        game_version=game_version,
-    )
+    processed_files = prepare_data(args.game_data_dir, args.output, game_version)
+    update_index(args.output, game_version, processed_files)
 
 
 if __name__ == '__main__':

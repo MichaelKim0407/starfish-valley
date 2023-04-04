@@ -3,6 +3,8 @@ import os
 import typing
 from functools import cached_property
 
+from returns import returns
+
 
 class LanguageProcessor:
     LANGUAGES = {
@@ -21,10 +23,12 @@ class LanguageProcessor:
     }
 
     @classmethod
-    def run_all(cls, game_data_dir: str, output: str, game_version: str):
+    @returns(list)
+    def run_all(cls, game_data_dir: str, output: str, game_version: str) -> list[str]:
         for lang_code in cls.LANGUAGES:
             processor = cls(game_data_dir, output, game_version, lang_code)
             processor()
+            yield processor.output_file_name
 
     def __init__(self, game_data_dir: str, output: str, game_version: str, lang_code: str):
         self.game_data_dir = game_data_dir
@@ -58,10 +62,14 @@ class LanguageProcessor:
 
     @cached_property
     def output_file_name(self) -> str:
-        return os.path.join(self.output, f'{self.game_version} ({self.language}).json')
+        return f'{self.game_version} ({self.language}).json'
+
+    @cached_property
+    def output_file_path(self) -> str:
+        return os.path.join(self.output, self.output_file_name)
 
     def __call__(self):
-        with open(self.output_file_name, 'w') as f:
+        with open(self.output_file_path, 'w') as f:
             json.dump(self.data, f)
 
 
