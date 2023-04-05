@@ -1,4 +1,6 @@
+import typing
 from collections import defaultdict
+from functools import cached_property
 
 from returns import returns
 
@@ -10,11 +12,28 @@ def skip_empty_values(iterable):
         yield key, value
 
 
-def merge(iterable):
-    result = defaultdict(list)
-    for key, value in iterable:
-        result[key].append(value)
-    return dict(result)
+class Merge:
+    def __init__(self, levels: int = 1):
+        self.levels = levels
+
+    @cached_property
+    def _next(self) -> typing.Self:
+        return self.__class__(self.levels - 1)
+
+    def __call__(self, iterable):
+        if self.levels <= 0:
+            return list(iterable)
+
+        result = defaultdict(list)
+        for key, value in iterable:
+            result[key].append(value)
+        return {
+            key: self._next(values)
+            for key, values in result.items()
+        }
+
+
+merge = Merge(1)
 
 
 @returns(tuple)
