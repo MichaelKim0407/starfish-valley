@@ -7,6 +7,7 @@ from returns import returns
 from utils import merge
 from . import t
 from .base import JsonFileProcessor, AbstractProcessor
+from .fish import AbstractExtendFishProcessor
 
 
 class LocationNameProcessor(AbstractProcessor):
@@ -48,7 +49,7 @@ class LocationNameProcessor(AbstractProcessor):
     LOCATION_VARIATION_ANY = '-1'
 
     @returns(dict)
-    def _process_location(self, location_key: t.LocationKey) -> dict[t.LocationVariation, t.LocationName]:
+    def _process_location(self, location_key: t.Location.Key) -> dict[t.Location.Variation, t.Location.Name]:
         location_name_locale_dict, variations = self.LOCATIONS[location_key]
         location_name = self.parent.translate(location_name_locale_dict)
         if variations is None:
@@ -61,16 +62,33 @@ class LocationNameProcessor(AbstractProcessor):
 
     @cached_property
     @returns(dict)
-    def _names(self) -> dict[t.LocationKey, dict[t.LocationVariation, t.LocationName]]:
+    def _names(self) -> dict[t.Location.Key, dict[t.Location.Variation, t.Location.Name]]:
         for location_key in self.LOCATIONS:
             yield location_key, self._process_location(location_key)
 
-    def __getitem__(self, key: tuple[t.LocationKey, t.LocationVariation]) -> t.LocationName:
-        location_key, location_variation = key
+    @classmethod
+    def expand(
+            cls,
+            key: t.Location.Key,
+            var_orig: t.Location.Variation,
+    ) -> typing.Iterator[t.Location.Variation]:
+        variations = cls.LOCATIONS[key][1]
+        if (
+                variations is not None
+                and var_orig == cls.LOCATION_VARIATION_ANY
+        ):
+            for var in variations:
+                yield var
+
+        else:
+            yield var_orig
+
+    def __getitem__(self, lookup: tuple[t.Location.Key, t.Location.Variation]) -> t.Location.Name:
+        location_key, location_variation = lookup
         return self._names[location_key][location_variation]
 
 
-class LocationProcessor(JsonFileProcessor):
+class LocationProcessor(JsonFileProcessor, AbstractExtendFishProcessor):
     FILENAME = os.path.join('Data', 'Locations')
     USE_LOCALE = False
 
@@ -82,15 +100,12 @@ class LocationProcessor(JsonFileProcessor):
     SEASON_SKIP = {'-1'}
     SEASONS = ('spring', 'summer', 'fall', 'winter')
 
-    RESULT_LOCATION_KEY = 'key'
-    RESULT_LOCATION_VARIATION = 'variation'
-    RESULT_LOCATION_VARIATION_ORIGINAL = 'variation_orig'
-    RESULT_LOCATION_NAME = 'name'
-    RESULT_SEASON = 'season'
+    @cached_property
+    def _location_name_processor(self) -> LocationNameProcessor:
+        return self.parent.get_processor(LocationNameProcessor)
 
     @classmethod
-    @returns(dict)
-    def _parse_season_value(cls, value: str) -> dict[t.FishId, t.LocationVariation]:
+    def _parse_season_value(cls, value: str) -> typing.Iterator[tuple[t.Fish.Id, t.Location.Variation]]:
         if value in cls.SEASON_SKIP:
             return
 
@@ -98,71 +113,28 @@ class LocationProcessor(JsonFileProcessor):
         for i in range(0, len(items), 2):
             yield items[i], items[i + 1]
 
-    @classmethod
-    @returns(dict)
-    def _parse_location_value(cls, value: str) -> dict[t.Season, dict[t.FishId, t.LocationVariation]]:
-        for season_name, season_value in zip(cls.SEASONS, value.split('/')[4:8]):
-            season = cls._parse_season_value(season_value)
-            if not season:
-                continue
-            yield season_name, season
-
-    @cached_property
-    @returns(dict)
-    def _locations(self) -> dict[t.LocationKey, dict[t.Season, dict[t.FishId, t.LocationVariation]]]:
-        for key, value in self._raw_data.items():
-            if key in self.SKIP_LOCATIONS:
-                continue
-            location = self._parse_location_value(value)
-            if not location:
-                continue
-            yield key, location
-
-    @cached_property
-    def _location_name_processor(self) -> LocationNameProcessor:
-        return self.parent.get_processor(LocationNameProcessor)
-
-    def _get_fish_location_data(
-            self,
-            location_key: t.LocationKey,
-            location_var: t.LocationVariation,
-            season: t.Season,
-    ) -> typing.Iterator[dict]:
-        variations = LocationNameProcessor.LOCATIONS[location_key][1]
-        if (
-                variations is not None
-                and location_var == LocationNameProcessor.LOCATION_VARIATION_ANY
-        ):
-            for var in variations:
-                yield {
-                    self.RESULT_LOCATION_KEY: location_key,
-                    self.RESULT_LOCATION_VARIATION: var,
-                    self.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
-                    self.RESULT_LOCATION_NAME: self._location_name_processor[location_key, var],
-                    self.RESULT_SEASON: season,
-                }
-            return
-
-        yield {
-            self.RESULT_LOCATION_KEY: location_key,
-            self.RESULT_LOCATION_VARIATION: location_var,
-            self.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
-            self.RESULT_LOCATION_NAME: self._location_name_processor[location_key, location_var],
-            self.RESULT_SEASON: season,
-        }
+    def _parse_location(self, key: t.Location.Key, value: str) -> typing.Iterator[tuple[t.Fish.Id, t.Location]]:
+        # https://stardewvalleywiki.com/Modding:Fish_data#Spawn_locations
+        for season, season_fish in zip(self.SEASONS, value.split('/')[4:8]):
+            for fish_id, variation_orig in self._parse_season_value(season_fish):
+                for variation in self._location_name_processor.expand(key, variation_orig):
+                    yield fish_id, t.Location(
+                        key=key,
+                        variation=variation,
+                        variation_orig=variation_orig,
+                        name=self._location_name_processor[key, variation],
+                        season=season,
+                    )
 
     @cached_property
     @returns(merge)
-    def _fish_locations(self) -> dict[t.FishId, list[dict]]:
-        for location_key, location_fish in self._locations.items():
-            for season, season_fish in location_fish.items():
-                for fish_id, location_var in season_fish.items():
-                    for fish_location in self._get_fish_location_data(
-                            location_key,
-                            location_var,
-                            season,
-                    ):
-                        yield fish_id, fish_location
+    def _fish_locations(self) -> dict[t.Fish.Id, list[t.Location]]:
+        for key, value in self._raw_data.items():
+            if key in self.SKIP_LOCATIONS:
+                continue
+            yield from self._parse_location(key, value)
 
-    def __getitem__(self, fish_id: t.FishId) -> list[dict] | None:
-        return self._fish_locations.get(fish_id)
+    def extend_fish(self, fish: t.Fish) -> None:
+        if fish.id not in self._fish_locations:
+            return
+        fish.locations = self._fish_locations[fish.id]

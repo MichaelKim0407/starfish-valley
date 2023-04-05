@@ -1,56 +1,43 @@
 import os
+import typing
 from functools import cached_property
 
 from returns import returns
 
 from utils import convert_items
 from . import t
-from .base import JsonFileProcessor
+from .base import JsonFileProcessor, AbstractProcessor
 
 
 class FishProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Data', 'Fish')
 
+    WEATHER_SUNNY = 'sunny'
+    WEATHER_RAINY = 'rainy'
+    WEATHER_BOTH = 'both'
     WEATHER_MAP = {
-        'both': ('sunny', 'rainy'),
+        WEATHER_BOTH: (WEATHER_SUNNY, WEATHER_RAINY),
     }
 
     DIFFICULTY_SKIP = {'trap'}
 
     RESULT_KEY = 'fish'
 
-    RESULT_ID = 'id'
-    RESULT_EN_NAME = 'en_name'
-    RESULT_LOCALIZED_NAME = 'name'
-    RESULT_TIME_RANGES = 'time_ranges'
-    RESULT_WEATHER = 'weather'
-    RESULT_MIN_LEVEL = 'min_level'
-    RESULT_MAX_DEPTH = 'max_depth'
-    RESULT_SPAWN_MULTI = 'spawn_multi'
-    RESULT_DEPTH_MULTI = 'depth_multi'
-    RESULT_BEHAVIOR = 'behavior'
-    RESULT_DIFFICULTY = 'difficulty'
-    RESULT_SIZE_RANGE = 'size_range'
-
-    RESULT_LOCATIONS = 'locations'
-    RESULT_BUNDLES = 'bundles'
-    RESULT_GIFTS = 'gifts'
-
     @staticmethod
     @returns(list)
-    def _parse_time_ranges(time_ranges: str) -> t.TimeRanges:
-        hours = convert_items(time_ranges.split(' '), int)
+    def _parse_time_ranges(value: str) -> t.Fish.TimeRanges:
+        hours = convert_items(value.split(' '), int)
         for i in range(0, len(hours), 2):
             yield hours[i], hours[i + 1]
 
     @classmethod
-    def _parse_weather(cls, weather: str) -> t.Weathers:
-        if weather in cls.WEATHER_MAP:
-            return cls.WEATHER_MAP[weather]
+    def _parse_weather(cls, value: str) -> t.Fish.Weathers:
+        if value in cls.WEATHER_MAP:
+            return cls.WEATHER_MAP[value]
         else:
-            return (weather,)
+            return (value,)
 
-    def _parse_fish_value(self, value: str) -> dict | None:
+    def _parse_fish(self, id_: t.Fish.Id, value: str) -> t.Fish | None:
         # https://stardewvalleywiki.com/Modding:Fish_data#Fish_data_and_spawn_criteria
         name, difficulty, *other_fields = value.split('/')
         if difficulty in self.DIFFICULTY_SKIP:
@@ -78,76 +65,68 @@ class FishProcessor(JsonFileProcessor):
         else:
             localized_name = name
 
-        return {
-            self.RESULT_EN_NAME: name,
-            self.RESULT_LOCALIZED_NAME: localized_name,
-
-            self.RESULT_TIME_RANGES: self._parse_time_ranges(time_ranges),
-            self.RESULT_WEATHER: self._parse_weather(weather),
-            self.RESULT_MIN_LEVEL: int(min_level),
-
-            self.RESULT_MAX_DEPTH: int(max_depth),
-            self.RESULT_SPAWN_MULTI: float(spawn_multi),
-            self.RESULT_DEPTH_MULTI: float(depth_multi),
-            self.RESULT_BEHAVIOR: behavior,
-            self.RESULT_DIFFICULTY: int(difficulty),
-            self.RESULT_SIZE_RANGE: (int(min_size), int(max_size)),
-        }
+        return t.Fish(
+            id=id_,
+            en_name=name,
+            name=localized_name,
+            time_ranges=self._parse_time_ranges(time_ranges),
+            weather=self._parse_weather(weather),
+            min_level=int(min_level),
+            max_depth=int(max_depth),
+            spawn_multi=float(spawn_multi),
+            depth_multi=float(depth_multi),
+            behavior=behavior,
+            difficulty=int(difficulty),
+            size_range=(int(min_size), int(max_size)),
+        )
 
     @cached_property
     @returns(dict)
-    def _fish(self) -> dict[t.FishId, dict]:
+    def _fish(self) -> dict[t.Fish.Id, t.Fish]:
         for key, value in self._raw_data.items():
-            parsed = self._parse_fish_value(value)
-            if not parsed:
+            fish = self._parse_fish(key, value)
+            if fish is None:
                 continue
-            parsed[self.RESULT_ID] = key
-            yield key, parsed
+            yield key, fish
 
-    def __contains__(self, fish_id: t.FishId) -> bool:
+    def __contains__(self, fish_id: t.Fish.Id) -> bool:
         return fish_id in self._fish
 
     @cached_property
     @returns(dict)
-    def _en_name_id_map(self) -> dict[t.FishEnName, t.FishId]:
+    def _en_name_id_map(self) -> dict[t.Fish.EnName, t.Fish.Id]:
         for fish_id, fish in self._fish.items():
-            yield fish[self.RESULT_EN_NAME], fish_id
+            yield fish.en_name, fish_id
 
-    def get_id_from_en_name(self, en_name: t.FishEnName) -> t.FishId | None:
+    def get_id_from_en_name(self, en_name: t.Fish.EnName) -> t.Fish.Id | None:
         return self._en_name_id_map.get(en_name)
 
-    @cached_property
-    def _location_processor(self) -> 'LocationProcessor':
-        return self.parent.get_processor(LocationProcessor)
+    @property
+    def _extend_processors(self) -> typing.Iterator['Processor']:
+        from .locations import LocationProcessor
+        yield self.parent.get_processor(LocationProcessor)
+        from .bundles import AllBundleProcessor
+        yield self.parent.get_processor(AllBundleProcessor)
+        from .gifts import GiftProcessor
+        yield self.parent.get_processor(GiftProcessor)
+
+    def _extend(self):
+        for fish in self._fish.values():
+            for processor in self._extend_processors:
+                processor.extend_fish(fish)
 
     @cached_property
-    def _bundle_processor(self) -> 'AllBundleProcessor':
-        return self.parent.get_processor(AllBundleProcessor)
+    def _fish_extended(self) -> dict[str, t.Fish]:
+        self._extend()
+        return self._fish
 
-    @cached_property
-    def _gift_processor(self) -> 'GiftProcessor':
-        return self.parent.get_processor(GiftProcessor)
-
-    @cached_property
-    @returns(dict)
-    def _fish_extended(self) -> dict[str, dict]:
-        for fish_id, fish in self._fish.items():
-            extend = {
-                self.RESULT_LOCATIONS: self._location_processor[fish_id],
-                self.RESULT_BUNDLES: self._bundle_processor[fish_id],
-                self.RESULT_GIFTS: self._gift_processor[fish_id],
-            }
-            extend = {
-                k: v
-                for k, v in extend.items()
-                if v
-            }
-            yield fish_id, {**fish, **extend}
-
-    def __call__(self, result: dict):
-        result[self.RESULT_KEY] = self._fish_extended
+    def __call__(self, result: t.Result):
+        result.fish = self._fish_extended
 
 
-from .locations import LocationProcessor
-from .bundles import AllBundleProcessor
-from .gifts import GiftProcessor
+class AbstractExtendFishProcessor(AbstractProcessor):
+    def extend_fish(self, fish: t.Fish) -> None:
+        raise NotImplementedError
+
+
+Processor = typing.TypeVar('Processor', bound=AbstractExtendFishProcessor)

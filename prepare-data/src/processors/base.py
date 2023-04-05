@@ -2,6 +2,7 @@ import json
 import os
 from functools import cached_property
 
+from . import t
 from .languages import LanguageProcessor
 
 
@@ -9,7 +10,7 @@ class AbstractProcessor:
     def __init__(self, parent: LanguageProcessor):
         self.parent = parent
 
-    def __call__(self, result: dict):
+    def __call__(self, result: t.Result):
         raise NotImplementedError
 
 

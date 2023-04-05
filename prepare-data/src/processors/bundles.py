@@ -4,48 +4,38 @@ from functools import cached_property
 
 from returns import returns
 
-from utils import merge
+from utils import Merge, merge
 from . import t
-from .base import AbstractProcessor, JsonFileProcessor
-from .fish import FishProcessor
+from .base import JsonFileProcessor
+from .fish import FishProcessor, AbstractExtendFishProcessor
 
 
-class BundleProcessorMixin(AbstractProcessor):
-    RESULT_BUNDLE_EN_NAME = 'en_name'
-    RESULT_BUNDLE_NAME = 'name'
-    RESULT_BUNDLE_ITEMS = 'items'
-
+class BundleProcessorMixin(AbstractExtendFishProcessor):
     @property
     def _raw_bundles(self) -> typing.Iterator:
         raise NotImplementedError
 
-    def _process_bundle(self, raw_bundle) -> dict | None:
+    def _process_bundle(self, raw_bundle) -> typing.Iterator[tuple[t.Fish.Id, t.Bundle]]:
         raise NotImplementedError
 
     @cached_property
     @returns(list)
-    def _bundles(self) -> list[dict]:
+    def _bundles(self) -> list[tuple[t.Fish.Id, t.Bundle]]:
         for raw_bundle in self._raw_bundles:
-            bundle = self._process_bundle(raw_bundle)
-            if not bundle[self.RESULT_BUNDLE_ITEMS]:
-                continue
-            yield bundle
+            yield from self._process_bundle(raw_bundle)
 
-    def __iter__(self) -> typing.Iterator[dict]:
+    def __iter__(self) -> typing.Iterator[tuple[t.Fish.Id, t.Bundle]]:
         yield from self._bundles
 
     @cached_property
     @returns(merge)
-    def _fish_bundles(self) -> dict[t.FishId, list[dict]]:
-        for bundle in self._bundles:
-            for fish_id in bundle[self.RESULT_BUNDLE_ITEMS]:
-                yield fish_id, {
-                    self.RESULT_BUNDLE_EN_NAME: bundle[BundleProcessor.RESULT_BUNDLE_EN_NAME],
-                    self.RESULT_BUNDLE_NAME: bundle[BundleProcessor.RESULT_BUNDLE_NAME],
-                }
+    def _fish_bundles(self) -> dict[t.Fish.Id, t.Bundle]:
+        yield from self
 
-    def __getitem__(self, fish_id: t.FishId) -> list[dict] | None:
-        return self._fish_bundles.get(fish_id)
+    def extend_fish(self, fish: t.Fish) -> None:
+        if fish.id not in self._fish_bundles:
+            return
+        fish.bundles = self._fish_bundles[fish.id]
 
 
 class BundleProcessor(JsonFileProcessor, BundleProcessorMixin):
@@ -59,16 +49,15 @@ class BundleProcessor(JsonFileProcessor, BundleProcessorMixin):
     def _fish_processor(self) -> FishProcessor:
         return self.parent.get_processor(FishProcessor)
 
-    @returns(list)
-    def _parse_items(self, items: str) -> list[t.FishId]:
-        values = items.split(' ')
-        for i in range(0, len(values), 3):
-            item_id = values[i]
+    def _parse_items(self, value: str) -> typing.Iterator[t.Fish.Id]:
+        elems = value.split(' ')
+        for i in range(0, len(elems), 3):
+            item_id = elems[i]
             if item_id not in self._fish_processor:
                 continue
             yield item_id
 
-    def _process_bundle(self, value: str) -> dict | None:
+    def _process_bundle(self, value: str) -> typing.Iterator[tuple[t.Fish.Id, t.Bundle]]:
         # https://stardewvalleywiki.com/Modding:Bundles
         (
             name,
@@ -82,20 +71,19 @@ class BundleProcessor(JsonFileProcessor, BundleProcessorMixin):
             localized_name = other_fields[-1]
         else:
             localized_name = name
+        bundle = t.Bundle(
+            en_name=name,
+            name=localized_name,
+        )
 
-        item_ids = self._parse_items(items)
-
-        return {
-            self.RESULT_BUNDLE_EN_NAME: name,
-            self.RESULT_BUNDLE_NAME: localized_name,
-            self.RESULT_BUNDLE_ITEMS: item_ids,
-        }
+        for fish_id in self._parse_items(items):
+            yield fish_id, bundle
 
 
 class RemixedBundleNameProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Strings', 'BundleNames')
 
-    def __getitem__(self, en_name: t.BundleEnName) -> t.BundleName | None:
+    def __getitem__(self, en_name: t.Bundle.EnName) -> t.Bundle.Name | None:
         return self._raw_data.get(en_name)
 
 
@@ -114,11 +102,10 @@ class RemixedBundleProcessor(JsonFileProcessor, BundleProcessorMixin):
     def _fish_processor(self) -> FishProcessor:
         return self.parent.get_processor(FishProcessor)
 
-    @returns(list)
-    def _parse_items(self, items: str) -> list[t.FishId]:
-        for item in items.split(','):
-            item = item.strip()
-            count, item_en_name = item.split(' ', maxsplit=1)
+    def _parse_items(self, value: str) -> typing.Iterator[t.Fish.Id]:
+        for elem in value.split(','):
+            elem = elem.strip()
+            count, item_en_name = elem.split(' ', maxsplit=1)
             item_id = self._fish_processor.get_id_from_en_name(item_en_name)
             if item_id is None:
                 continue
@@ -128,14 +115,15 @@ class RemixedBundleProcessor(JsonFileProcessor, BundleProcessorMixin):
     def _bundle_name_processor(self) -> RemixedBundleNameProcessor:
         return self.parent.get_processor(RemixedBundleNameProcessor)
 
-    def _process_bundle(self, bundle_raw) -> dict | None:
-        name = bundle_raw['Name']
-        localized_name = self._bundle_name_processor[name]
-        return {
-            self.RESULT_BUNDLE_EN_NAME: name,
-            self.RESULT_BUNDLE_NAME: localized_name,
-            self.RESULT_BUNDLE_ITEMS: self._parse_items(bundle_raw['Items']),
-        }
+    def _process_bundle(self, raw_bundle) -> typing.Iterator[tuple[t.Fish.Id, t.Bundle]]:
+        en_name = raw_bundle['Name']
+        bundle = t.Bundle(
+            en_name=en_name,
+            name=self._bundle_name_processor[en_name],
+        )
+
+        for fish_id in self._parse_items(raw_bundle['Items']):
+            yield fish_id, bundle
 
 
 class AllBundleProcessor(BundleProcessorMixin):
@@ -151,12 +139,11 @@ class AllBundleProcessor(BundleProcessorMixin):
 
     @cached_property
     @returns(list)
-    def _bundles(self) -> list[dict]:
-        seen = set()
+    def _bundles(self) -> list[tuple[t.Fish.Id, t.Bundle]]:
         for processor in self._processors:
-            for bundle in processor:
-                en_name = bundle[self.RESULT_BUNDLE_EN_NAME]
-                if en_name in seen:
-                    continue
-                seen.add(en_name)
-                yield bundle
+            yield from processor
+
+    @cached_property
+    @returns(Merge(dedup_key=lambda bundle: bundle.en_name))
+    def _fish_bundles(self) -> dict[t.Fish.Id, t.Bundle]:
+        yield from self

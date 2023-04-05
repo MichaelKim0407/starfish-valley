@@ -1,4 +1,5 @@
 import os
+import typing
 from functools import cached_property
 
 from returns import returns
@@ -6,7 +7,7 @@ from returns import returns
 from utils import Merge
 from . import t
 from .base import JsonFileProcessor
-from .fish import FishProcessor
+from .fish import FishProcessor, AbstractExtendFishProcessor
 
 
 class CharacterNameProcessor(JsonFileProcessor):
@@ -14,29 +15,26 @@ class CharacterNameProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(dict)
-    def _names(self) -> dict[t.CharacterKey, t.CharacterName]:
+    def _names(self) -> dict[t.Character.Key, t.Character.Name]:
         # https://stardewvalleywiki.com/Modding:NPC_data#Basic_info
         for character_key, value in self._raw_data.items():
             yield character_key, value.split('/')[-1]
 
-    def __getitem__(self, character_key: t.CharacterKey) -> t.CharacterName:
+    def __getitem__(self, character_key: t.Character.Key) -> t.Character.Name:
         return self._names[character_key]
 
 
-class GiftProcessor(JsonFileProcessor):
+class GiftProcessor(JsonFileProcessor, AbstractExtendFishProcessor):
     FILENAME = os.path.join('Data', 'NPCGiftTastes')
-
-    RESULT_LOVE = 'loves'
-    RESULT_LIKE = 'likes'
 
     SKIP_PREFIX = {'Universal_'}
     INDEXES = {
-        RESULT_LOVE: 1,
-        RESULT_LIKE: 3,
+        t.Character.LOVES: 1,
+        t.Character.LIKES: 3,
     }
 
     @classmethod
-    def _should_skip(cls, character_key: t.CharacterKey) -> bool:
+    def _should_skip(cls, character_key: t.Character.Key) -> bool:
         for skip_prefix in cls.SKIP_PREFIX:
             if character_key.startswith(skip_prefix):
                 return True
@@ -46,8 +44,7 @@ class GiftProcessor(JsonFileProcessor):
     def _fish_processor(self) -> FishProcessor:
         return self.parent.get_processor(FishProcessor)
 
-    @returns(list)
-    def _parse_item_ids(self, value: str) -> list[t.FishId]:
+    def _parse_item_ids(self, value: str) -> typing.Iterator[t.Fish.Id]:
         if not value:
             return
 
@@ -56,26 +53,12 @@ class GiftProcessor(JsonFileProcessor):
                 continue
             yield item_id
 
-    @returns(dict)
-    def _parse_character_value(self, value: str) -> t.CharacterPreferences:
+    def _parse_character_preferences(self, value: str) -> typing.Iterator[tuple[t.Fish.Id, t.Character.PreferenceType]]:
         # https://stardewvalleywiki.com/Modding:Gift_taste_data#Format
         elems = value.split('/')
-        for key, i in self.INDEXES.items():
-            item_ids = self._parse_item_ids(elems[i])
-            if not item_ids:
-                continue
-            yield key, item_ids
-
-    @cached_property
-    @returns(dict)
-    def _character_gift_tastes(self) -> dict[t.CharacterKey, t.CharacterPreferences]:
-        for character_key, value in self._raw_data.items():
-            if self._should_skip(character_key):
-                continue
-            character = self._parse_character_value(value)
-            if not character:
-                continue
-            yield character_key, character
+        for preference_type, i in self.INDEXES.items():
+            for fish_id in self._parse_item_ids(elems[i]):
+                yield fish_id, preference_type
 
     @cached_property
     def _character_name_processor(self) -> CharacterNameProcessor:
@@ -83,12 +66,18 @@ class GiftProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(Merge(2))
-    def _item_tastes(self) -> dict[t.FishId, dict[t.CharacterPreferenceType, list[t.CharacterName]]]:
-        for character_key, character_gift_tastes in self._character_gift_tastes.items():
-            character_name = self._character_name_processor[character_key]
-            for taste_type, item_ids in character_gift_tastes.items():
-                for item_id in item_ids:
-                    yield item_id, (taste_type, character_name)
+    def _fish_preferences(self) -> dict[t.Fish.Id, dict[t.Character.PreferenceType, list[t.Character]]]:
+        for character_key, value in self._raw_data.items():
+            if self._should_skip(character_key):
+                continue
+            character = t.Character(
+                key=character_key,
+                name=self._character_name_processor[character_key],
+            )
+            for fish_id, preference_type in self._parse_character_preferences(value):
+                yield fish_id, (preference_type, character)
 
-    def __getitem__(self, fish_id: t.FishId) -> dict[t.CharacterPreferenceType, list[t.CharacterName]]:
-        return self._item_tastes.get(fish_id)
+    def extend_fish(self, fish: t.Fish) -> None:
+        if fish.id not in self._fish_preferences:
+            return
+        fish.gifts = self._fish_preferences[fish.id]

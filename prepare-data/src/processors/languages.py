@@ -5,6 +5,7 @@ from functools import cached_property
 
 from returns import returns
 
+from utils import JSONEncoder
 from . import t
 
 
@@ -23,10 +24,6 @@ class LanguageProcessor:
         'tr-TR': 'Türkçe',  # Turkish
         'hu-HU': 'Magyar',  # Hungarian
     }
-
-    RESULT_VERSION = 'version'
-    RESULT_LANG_CODE = 'lang_code'
-    RESULT_LANGUAGE = 'language'
 
     @classmethod
     @returns(list)
@@ -88,12 +85,12 @@ class LanguageProcessor:
             yield self.get_processor(processor_cls)
 
     @cached_property
-    def _result(self) -> dict:
-        result = {
-            self.RESULT_VERSION: self.game_version,
-            self.RESULT_LANG_CODE: self.lang_code,
-            self.RESULT_LANGUAGE: self._language,
-        }
+    def _result(self) -> t.Result:
+        result = t.Result(
+            version=self.game_version,
+            lang_code=self.lang_code,
+            language=self._language,
+        )
         for file_processor in self._processors:
             file_processor(result)
         return result
@@ -108,7 +105,7 @@ class LanguageProcessor:
 
     def __call__(self):
         with open(self._output_file_path, 'w') as f:
-            json.dump(self._result, f)
+            json.dump(self._result, f, cls=JSONEncoder)
 
 
 from .base import AbstractProcessor
