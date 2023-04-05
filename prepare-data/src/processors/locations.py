@@ -4,7 +4,7 @@ from functools import cached_property
 
 from returns import returns
 
-from utils import skip_empty_values, merge
+from utils import merge
 from . import t
 from .base import JsonFileProcessor, AbstractProcessor
 from .fish import FishProcessor
@@ -103,19 +103,23 @@ class LocationProcessor(JsonFileProcessor):
 
     @classmethod
     @returns(dict)
-    @returns(skip_empty_values)
     def _parse_location_value(cls, value: str) -> dict[t.Season, dict[t.FishId, t.LocationVariation]]:
         for season_name, season_value in zip(cls.SEASONS, value.split('/')[4:8]):
-            yield season_name, cls._parse_season_value(season_value)
+            season = cls._parse_season_value(season_value)
+            if not season:
+                continue
+            yield season_name, season
 
     @cached_property
     @returns(dict)
-    @returns(skip_empty_values)
     def _locations(self) -> dict[t.LocationKey, dict[t.Season, dict[t.FishId, t.LocationVariation]]]:
         for key, value in self._raw_data.items():
             if key in self.SKIP_LOCATIONS:
                 continue
-            yield key, self._parse_location_value(value)
+            location = self._parse_location_value(value)
+            if not location:
+                continue
+            yield key, location
 
     @cached_property
     def _location_name_processor(self) -> LocationNameProcessor:

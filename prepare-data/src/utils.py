@@ -5,13 +5,6 @@ from functools import cached_property
 from returns import returns
 
 
-def skip_empty_values(iterable):
-    for key, value in iterable:
-        if not value:
-            continue
-        yield key, value
-
-
 class Merge:
     def __init__(self, levels: int = 1):
         self.levels = levels
