@@ -32,6 +32,10 @@ class FishProcessor(JsonFileProcessor):
     RESULT_DIFFICULTY = 'difficulty'
     RESULT_SIZE_RANGE = 'size_range'
 
+    RESULT_LOCATIONS = 'locations'
+    RESULT_BUNDLES = 'bundles'
+    RESULT_GIFTS = 'gifts'
+
     @staticmethod
     @returns(list)
     def _parse_time_ranges(time_ranges: str) -> t.TimeRanges:
@@ -112,5 +116,38 @@ class FishProcessor(JsonFileProcessor):
     def get_id_from_en_name(self, en_name: t.FishEnName) -> t.FishId | None:
         return self._en_name_id_map.get(en_name)
 
+    @cached_property
+    def _location_processor(self) -> 'LocationProcessor':
+        return self.parent.get_processor(LocationProcessor)
+
+    @cached_property
+    def _bundle_processor(self) -> 'AllBundleProcessor':
+        return self.parent.get_processor(AllBundleProcessor)
+
+    @cached_property
+    def _gift_processor(self) -> 'GiftProcessor':
+        return self.parent.get_processor(GiftProcessor)
+
+    @cached_property
+    @returns(dict)
+    def _fish_extended(self) -> dict[str, dict]:
+        for fish_id, fish in self._fish.items():
+            extend = {
+                self.RESULT_LOCATIONS: self._location_processor[fish_id],
+                self.RESULT_BUNDLES: self._bundle_processor[fish_id],
+                self.RESULT_GIFTS: self._gift_processor[fish_id],
+            }
+            extend = {
+                k: v
+                for k, v in extend.items()
+                if v
+            }
+            yield fish_id, {**fish, **extend}
+
     def __call__(self, result: dict):
-        result[self.RESULT_KEY] = self._fish
+        result[self.RESULT_KEY] = self._fish_extended
+
+
+from .locations import LocationProcessor
+from .bundles import AllBundleProcessor
+from .gifts import GiftProcessor

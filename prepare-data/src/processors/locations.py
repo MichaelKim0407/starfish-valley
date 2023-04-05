@@ -7,7 +7,6 @@ from returns import returns
 from utils import merge
 from . import t
 from .base import JsonFileProcessor, AbstractProcessor
-from .fish import FishProcessor
 
 
 class LocationNameProcessor(AbstractProcessor):
@@ -82,8 +81,6 @@ class LocationProcessor(JsonFileProcessor):
 
     SEASON_SKIP = {'-1'}
     SEASONS = ('spring', 'summer', 'fall', 'winter')
-
-    RESULT_SUBKEY = 'locations'
 
     RESULT_LOCATION_KEY = 'key'
     RESULT_LOCATION_VARIATION = 'variation'
@@ -167,6 +164,5 @@ class LocationProcessor(JsonFileProcessor):
                     ):
                         yield fish_id, fish_location
 
-    def __call__(self, result: dict):
-        for fish_id, fish_locations in self._fish_locations.items():
-            result[FishProcessor.RESULT_KEY][fish_id][self.RESULT_SUBKEY] = fish_locations
+    def __getitem__(self, fish_id: t.FishId) -> list[dict] | None:
+        return self._fish_locations.get(fish_id)

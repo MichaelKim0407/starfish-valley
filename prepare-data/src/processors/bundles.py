@@ -44,6 +44,9 @@ class BundleProcessorMixin(AbstractProcessor):
                     self.RESULT_BUNDLE_NAME: bundle[BundleProcessor.RESULT_BUNDLE_NAME],
                 }
 
+    def __getitem__(self, fish_id: t.FishId) -> list[dict] | None:
+        return self._fish_bundles.get(fish_id)
+
 
 class BundleProcessor(JsonFileProcessor, BundleProcessorMixin):
     FILENAME = os.path.join('Data', 'Bundles')
@@ -136,8 +139,6 @@ class RemixedBundleProcessor(JsonFileProcessor, BundleProcessorMixin):
 
 
 class AllBundleProcessor(BundleProcessorMixin):
-    RESULT_SUBKEY = 'bundles'
-
     PROCESSORS = (
         BundleProcessor,
         RemixedBundleProcessor,
@@ -159,8 +160,3 @@ class AllBundleProcessor(BundleProcessorMixin):
                     continue
                 seen.add(en_name)
                 yield bundle
-
-    def __call__(self, result: dict):
-        fish = result[FishProcessor.RESULT_KEY]
-        for fish_id, fish_bundles in self._fish_bundles.items():
-            fish[fish_id][self.RESULT_SUBKEY] = fish_bundles

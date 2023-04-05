@@ -26,8 +26,6 @@ class CharacterNameProcessor(JsonFileProcessor):
 class GiftProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Data', 'NPCGiftTastes')
 
-    RESULT_SUBKEY = 'gifts'
-
     RESULT_LOVE = 'loves'
     RESULT_LIKE = 'likes'
 
@@ -92,7 +90,5 @@ class GiftProcessor(JsonFileProcessor):
                 for item_id in item_ids:
                     yield item_id, (taste_type, character_name)
 
-    def __call__(self, result: dict):
-        fish = result[FishProcessor.RESULT_KEY]
-        for item_id, item_tastes in self._item_tastes.items():
-            fish[item_id][self.RESULT_SUBKEY] = item_tastes
+    def __getitem__(self, fish_id: t.FishId) -> dict[t.CharacterPreferenceType, list[t.CharacterName]]:
+        return self._item_tastes.get(fish_id)
