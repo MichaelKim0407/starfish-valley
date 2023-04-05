@@ -3,6 +3,7 @@ from functools import cached_property
 
 from returns import returns
 
+from utils import convert_items
 from .base import JsonFileProcessor
 
 
@@ -30,10 +31,7 @@ class FishProcessor(JsonFileProcessor):
     @staticmethod
     @returns(list)
     def parse_time_ranges(time_ranges: str) -> list[tuple[int, int]]:
-        hours = [
-            int(hour)
-            for hour in time_ranges.split(' ')
-        ]
+        hours = convert_items(time_ranges.split(' '), int)
         for i in range(0, len(hours), 2):
             yield hours[i], hours[i + 1]
 

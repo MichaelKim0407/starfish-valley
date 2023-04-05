@@ -21,3 +21,9 @@ def merge(iterable):
 def game_version_sort_key(game_version: str) -> tuple[int, ...]:
     for elem in game_version.split('.'):
         yield int(elem)
+
+
+@returns(list)
+def convert_items(items, converter) -> list:
+    for item in items:
+        yield converter(item)
