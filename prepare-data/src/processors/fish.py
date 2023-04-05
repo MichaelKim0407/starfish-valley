@@ -93,5 +93,17 @@ class FishProcessor(JsonFileProcessor):
             parsed[self.RESULT_ID] = key
             yield key, parsed
 
+    def __contains__(self, fish_id: str) -> bool:
+        return fish_id in self._fish
+
+    @cached_property
+    @returns(dict)
+    def _en_name_id_map(self) -> dict[str, str]:
+        for fish_id, fish in self._fish.items():
+            yield fish[self.RESULT_EN_NAME], fish_id
+
+    def get_id_from_en_name(self, en_name: str) -> str | None:
+        return self._en_name_id_map.get(en_name)
+
     def __call__(self, result: dict):
         result[self.RESULT_KEY] = self._fish
