@@ -6,49 +6,17 @@ from returns import returns
 from utils import Merge
 from .base import JsonFileProcessor
 from .fish import FishProcessor
-from .name_mapping import NameMappingMixin
 
 
-class CharacterNameProcessor(JsonFileProcessor, NameMappingMixin):
-    FILENAME = os.path.join('Strings', 'StringsFromCSFiles')
+class CharacterNameProcessor(JsonFileProcessor):
+    FILENAME = os.path.join('Data', 'NPCDispositions')
 
-    # TODO
-    MAPPING = {
-        'Abigail': ('Utility.cs.', None),
-        'Alex': ('Utility.cs.', None),
-        'Caroline': ('Utility.cs.', None),
-        'Clint': ('Utility.cs.', None),
-        'Demetrius': ('Utility.cs.', None),
-        'Dwarf': ('Utility.cs.', None),
-        'Elliott': ('Utility.cs.', None),
-        'Emily': ('Utility.cs.', None),
-        'Evelyn': ('Utility.cs.', None),
-        'George': ('Utility.cs.', None),
-        'Gus': ('Utility.cs.', None),
-        'Haley': ('Utility.cs.', None),
-        'Harvey': ('Utility.cs.', None),
-        'Jas': ('Utility.cs.', None),
-        'Jodi': ('Utility.cs.', None),
-        'Kent': ('Utility.cs.', None),
-        'Krobus': ('Utility.cs.', None),
-        'Leah': ('Utility.cs.', None),
-        'Leo': ('Utility.cs.', None),
-        'Lewis': ('Utility.cs.', None),
-        'Linus': ('Utility.cs.', None),
-        'Marnie': ('Utility.cs.', None),
-        'Maru': ('Utility.cs.', None),
-        'Pam': ('Utility.cs.', None),
-        'Penny': ('Utility.cs.', None),
-        'Pierre': ('Utility.cs.', None),
-        'Robin': ('Utility.cs.', None),
-        'Sam': ('Utility.cs.', None),
-        'Sandy': ('Utility.cs.', None),
-        'Sebastian': ('Utility.cs.', None),
-        'Shane': ('Utility.cs.', None),
-        'Vincent': ('Utility.cs.', None),
-        'Willy': ('Utility.cs.', None),
-        'Wizard': ('Utility.cs.', None),
-    }
+    @cached_property
+    @returns(dict)
+    def data(self) -> dict[str, str]:
+        # https://stardewvalleywiki.com/Modding:NPC_data#Basic_info
+        for character_key, value in self.raw_data.items():
+            yield character_key, value.split('/')[-1]
 
 
 class GiftProcessor(JsonFileProcessor):
@@ -86,15 +54,23 @@ class GiftProcessor(JsonFileProcessor):
     @cached_property
     @returns(dict)
     def data(self) -> dict[str, dict[str, list[str]]]:
-        for character_name, value in self.raw_data.items():
-            if self.should_skip(character_name):
+        for character_key, value in self.raw_data.items():
+            if self.should_skip(character_key):
                 continue
-            yield character_name, self.parse_character_value(value)
+            yield character_key, self.parse_character_value(value)
+
+    @cached_property
+    def _character_name_processor(self) -> CharacterNameProcessor:
+        return CharacterNameProcessor(self.parent)
+
+    def get_character_name(self, character_key: str) -> str:
+        return self._character_name_processor.data[character_key]
 
     @cached_property
     @returns(Merge(2))
     def rearranged_data(self) -> dict[str, dict[str, list[str]]]:
-        for character_name, character_gift_tastes in self.data.items():
+        for character_key, character_gift_tastes in self.data.items():
+            character_name = self.get_character_name(character_key)
             for taste_type, item_ids in character_gift_tastes.items():
                 for item_id in item_ids:
                     yield item_id, (taste_type, character_name)
