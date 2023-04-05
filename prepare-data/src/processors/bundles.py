@@ -51,7 +51,7 @@ class BundleProcessor(JsonFileProcessor):
     @returns(dict)
     def data(self) -> dict[str, dict]:
         for key, value in self.raw_data.items():
-            area_name, bundle_key = key.split('/')
+            # area_name, bundle_key = key.split('/')
             bundle = self.parse_bundle_value(value)
             # bundle[self.RESULT_BUNDLE_AREA_NAME] = area_name
             # bundle[self.RESULT_BUNDLE_KEY] = int(bundle_key)

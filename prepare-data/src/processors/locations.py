@@ -10,7 +10,7 @@ from .fish import FishProcessor
 from .name_mapping import NameMappingMixin
 
 FishId = typing.TypeVar('FishId', bound=str)
-LocationVariation = typing.TypeVar('LocationVariation', bound=int)
+LocationVariation = typing.TypeVar('LocationVariation', bound=str)
 Season = typing.TypeVar('Season', bound=str)
 LocationKey = typing.TypeVar('LocationKey', bound=str)
 
@@ -40,16 +40,18 @@ class LocationNameProcessor(JsonFileProcessor, NameMappingMixin):
         'IslandSecret': ('IslandName', 'secret location'),
     }
 
+    LOCATION_VARIATION_ANY = '-1'
+
     # https://stardewvalleywiki.com/Modding:Fish_data#Spawn_locations
     # TODO localize following words
     LOCATION_VARIATIONS = {
         'Forest': {
-            0: 'river',
-            1: 'pond',
+            '0': 'river',
+            '1': 'pond',
         },
         'IslandWest': {
-            1: 'ocean',
-            2: 'freshwater',
+            '1': 'ocean',
+            '2': 'freshwater',
         },
     }
 
@@ -59,7 +61,7 @@ class LocationNameProcessor(JsonFileProcessor, NameMappingMixin):
     def process_location(self, location_key: LocationKey) -> dict[LocationVariation, str]:
         location_name = self.get_localized_name(location_key)
         if location_key not in self.LOCATION_VARIATIONS:
-            yield -1, location_name
+            yield self.LOCATION_VARIATION_ANY, location_name
             return
 
         for variation, variation_locale_dict in self.LOCATION_VARIATIONS[location_key].items():
@@ -104,7 +106,7 @@ class LocationProcessor(JsonFileProcessor):
 
         items = season.split(' ')
         for i in range(0, len(items), 2):
-            yield items[i], int(items[i + 1])
+            yield items[i], items[i + 1]
 
     @classmethod
     @returns(dict)
@@ -136,7 +138,10 @@ class LocationProcessor(JsonFileProcessor):
             location_var: LocationVariation,
             season: Season,
     ) -> typing.Iterator[dict[str, typing.Any]]:
-        if location_key in LocationNameProcessor.LOCATION_VARIATIONS and location_var == -1:
+        if (
+                location_key in LocationNameProcessor.LOCATION_VARIATIONS
+                and location_var == LocationNameProcessor.LOCATION_VARIATION_ANY
+        ):
             for var in LocationNameProcessor.LOCATION_VARIATIONS[location_key]:
                 yield {
                     self.RESULT_LOCATION_KEY: location_key,

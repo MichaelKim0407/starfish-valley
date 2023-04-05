@@ -90,7 +90,7 @@ class FishProcessor(JsonFileProcessor):
             parsed = self.parse_fish_value(value)
             if not parsed:
                 continue
-            parsed[self.RESULT_ID] = int(key)
+            parsed[self.RESULT_ID] = key
             yield key, parsed
 
     def __call__(self, result: dict):
