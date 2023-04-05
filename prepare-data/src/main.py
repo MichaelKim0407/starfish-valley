@@ -2,7 +2,7 @@ import json
 import os
 
 import utils
-from processors import LanguageProcessor
+from processors import process
 
 
 def get_game_version(game_dir):
@@ -11,10 +11,6 @@ def get_game_version(game_dir):
     key = [key for key in deps['libraries'].keys() if key.startswith('Stardew Valley/')][0]
     version = key.split('/')[1]
     return version
-
-
-def prepare_data(game_data_dir, output, game_version):
-    return LanguageProcessor.run_all(game_data_dir, output, game_version)
 
 
 def update_index(output, game_version, processed_files):
@@ -44,7 +40,7 @@ def main(args=None):
     args = parser.parse_args(args)
 
     game_version = get_game_version(args.game_dir)
-    processed_files = prepare_data(args.game_data_dir, args.output, game_version)
+    processed_files = process(args.game_data_dir, args.output, game_version)
     update_index(args.output, game_version, processed_files)
 
 

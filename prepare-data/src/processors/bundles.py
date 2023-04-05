@@ -3,7 +3,7 @@ from functools import cached_property
 
 from returns import returns
 
-from . import JsonFileProcessor, AbstractProcessor
+from .base import AbstractProcessor, JsonFileProcessor
 from .fish import FishProcessor
 
 
