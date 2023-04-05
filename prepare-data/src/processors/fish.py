@@ -30,19 +30,19 @@ class FishProcessor(JsonFileProcessor):
 
     @staticmethod
     @returns(list)
-    def parse_time_ranges(time_ranges: str) -> list[tuple[int, int]]:
+    def _parse_time_ranges(time_ranges: str) -> list[tuple[int, int]]:
         hours = convert_items(time_ranges.split(' '), int)
         for i in range(0, len(hours), 2):
             yield hours[i], hours[i + 1]
 
     @classmethod
-    def parse_weather(cls, weather: str) -> tuple[str, ...]:
+    def _parse_weather(cls, weather: str) -> tuple[str, ...]:
         if weather in cls.WEATHER_MAP:
             return cls.WEATHER_MAP[weather]
         else:
             return (weather,)
 
-    def parse_fish_value(self, value) -> dict | None:
+    def _parse_fish_value(self, value) -> dict | None:
         # https://stardewvalleywiki.com/Modding:Fish_data#Fish_data_and_spawn_criteria
         name, difficulty, *other_fields = value.split('/')
         if difficulty in self.DIFFICULTY_SKIP:
@@ -74,8 +74,8 @@ class FishProcessor(JsonFileProcessor):
             self.RESULT_EN_NAME: name,
             self.RESULT_LOCALIZED_NAME: localized_name,
 
-            self.RESULT_TIME_RANGES: self.parse_time_ranges(time_ranges),
-            self.RESULT_WEATHER: self.parse_weather(weather),
+            self.RESULT_TIME_RANGES: self._parse_time_ranges(time_ranges),
+            self.RESULT_WEATHER: self._parse_weather(weather),
             self.RESULT_MIN_LEVEL: int(min_size),
 
             self.RESULT_MAX_DEPTH: int(max_depth),
@@ -85,13 +85,13 @@ class FishProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(dict)
-    def data(self) -> dict[str, dict]:
-        for key, value in self.raw_data.items():
-            parsed = self.parse_fish_value(value)
+    def _fish(self) -> dict[str, dict]:
+        for key, value in self._raw_data.items():
+            parsed = self._parse_fish_value(value)
             if not parsed:
                 continue
             parsed[self.RESULT_ID] = key
             yield key, parsed
 
     def __call__(self, result: dict):
-        result[self.RESULT_KEY] = self.data
+        result[self.RESULT_KEY] = self._fish

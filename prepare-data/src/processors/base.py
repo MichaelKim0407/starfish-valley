@@ -47,7 +47,7 @@ class FileProcessor(AbstractProcessor):
             return f'{self.filename}.{self.parent.lang_code}.{self.ext}'
 
     @cached_property
-    def source_file_name(self) -> str:
+    def _source_file_name(self) -> str:
         return os.path.join(self.parent.game_data_dir, self._filename)
 
 
@@ -55,6 +55,6 @@ class JsonFileProcessor(FileProcessor):
     EXT = 'json'
 
     @cached_property
-    def raw_data(self):
-        with open(self.source_file_name) as f:
+    def _raw_data(self):
+        with open(self._source_file_name) as f:
             return json.load(f)

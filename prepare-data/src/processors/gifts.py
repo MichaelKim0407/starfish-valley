@@ -13,10 +13,13 @@ class CharacterNameProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(dict)
-    def data(self) -> dict[str, str]:
+    def _names(self) -> dict[str, str]:
         # https://stardewvalleywiki.com/Modding:NPC_data#Basic_info
-        for character_key, value in self.raw_data.items():
+        for character_key, value in self._raw_data.items():
             yield character_key, value.split('/')[-1]
+
+    def get_localized_name(self, character_key: str) -> str:
+        return self._names[character_key]
 
 
 class GiftProcessor(JsonFileProcessor):
@@ -34,7 +37,7 @@ class GiftProcessor(JsonFileProcessor):
     }
 
     @classmethod
-    def should_skip(cls, character_name: str) -> bool:
+    def _should_skip(cls, character_name: str) -> bool:
         for skip_prefix in cls.SKIP_PREFIX:
             if character_name.startswith(skip_prefix):
                 return True
@@ -42,7 +45,7 @@ class GiftProcessor(JsonFileProcessor):
 
     @classmethod
     @returns(dict)
-    def parse_character_value(cls, value: str) -> dict[str, list[str]]:
+    def _parse_character_value(cls, value: str) -> dict[str, list[str]]:
         # https://stardewvalleywiki.com/Modding:Gift_taste_data#Format
         elems = value.split('/')
         for key, i in cls.INDEXES.items():
@@ -53,31 +56,28 @@ class GiftProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(dict)
-    def data(self) -> dict[str, dict[str, list[str]]]:
-        for character_key, value in self.raw_data.items():
-            if self.should_skip(character_key):
+    def _character_gift_tastes(self) -> dict[str, dict[str, list[str]]]:
+        for character_key, value in self._raw_data.items():
+            if self._should_skip(character_key):
                 continue
-            yield character_key, self.parse_character_value(value)
+            yield character_key, self._parse_character_value(value)
 
     @cached_property
     def _character_name_processor(self) -> CharacterNameProcessor:
-        return self.parent.get_processor(CharacterNameProcessor)
-
-    def get_character_name(self, character_key: str) -> str:
-        return self._character_name_processor.data[character_key]
+        return CharacterNameProcessor(self.parent)
 
     @cached_property
     @returns(Merge(2))
-    def rearranged_data(self) -> dict[str, dict[str, list[str]]]:
-        for character_key, character_gift_tastes in self.data.items():
-            character_name = self.get_character_name(character_key)
+    def _item_tastes(self) -> dict[str, dict[str, list[str]]]:
+        for character_key, character_gift_tastes in self._character_gift_tastes.items():
+            character_name = self._character_name_processor.get_localized_name(character_key)
             for taste_type, item_ids in character_gift_tastes.items():
                 for item_id in item_ids:
                     yield item_id, (taste_type, character_name)
 
     def __call__(self, result: dict):
         fish = result[FishProcessor.RESULT_KEY]
-        for item_id, item_tastes in self.rearranged_data.items():
+        for item_id, item_tastes in self._item_tastes.items():
             if item_id not in fish:
                 continue
             fish[item_id][self.RESULT_SUBKEY] = item_tastes

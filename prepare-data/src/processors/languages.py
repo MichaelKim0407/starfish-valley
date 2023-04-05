@@ -47,7 +47,7 @@ class LanguageProcessor:
                 processors,
             )
             processor()
-            yield processor.output_file_name
+            yield processor._output_file_name
 
     def __init__(
             self,
@@ -78,7 +78,7 @@ class LanguageProcessor:
         return locale_dict[lang_code]
 
     @cached_property
-    def language(self) -> str:
+    def _language(self) -> str:
         return self.translate(self.LANGUAGES)
 
     def get_processor(self, processor_cls: typing.Type['Processor']) -> 'Processor':
@@ -92,27 +92,27 @@ class LanguageProcessor:
             yield self.get_processor(processor_cls)
 
     @cached_property
-    def data(self):
+    def _result(self):
         result = {
             self.RESULT_VERSION: self.game_version,
             self.RESULT_LANG_CODE: self.lang_code,
-            self.RESULT_LANGUAGE: self.language,
+            self.RESULT_LANGUAGE: self._language,
         }
         for file_processor in self._processors:
             file_processor(result)
         return result
 
     @cached_property
-    def output_file_name(self) -> str:
-        return f'{self.game_version} ({self.language}).json'
+    def _output_file_name(self) -> str:
+        return f'{self.game_version} ({self._language}).json'
 
     @cached_property
-    def output_file_path(self) -> str:
-        return os.path.join(self.output, self.output_file_name)
+    def _output_file_path(self) -> str:
+        return os.path.join(self.output, self._output_file_name)
 
     def __call__(self):
-        with open(self.output_file_path, 'w') as f:
-            json.dump(self.data, f)
+        with open(self._output_file_path, 'w') as f:
+            json.dump(self._result, f)
 
 
 from .base import AbstractProcessor

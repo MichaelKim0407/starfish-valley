@@ -53,7 +53,7 @@ class LocationNameProcessor(AbstractProcessor):
     LOCATION_VARIATION_ANY = '-1'
 
     @returns(dict)
-    def process_location(self, location_key: LocationKey) -> dict[LocationVariation, str]:
+    def _process_location(self, location_key: LocationKey) -> dict[LocationVariation, str]:
         location_name_locale_dict, variations = self.LOCATIONS[location_key]
         location_name = self.parent.translate(location_name_locale_dict)
         if variations is None:
@@ -66,9 +66,12 @@ class LocationNameProcessor(AbstractProcessor):
 
     @cached_property
     @returns(dict)
-    def location_names(self) -> dict[LocationKey, dict[LocationVariation, str]]:
+    def _names(self) -> dict[LocationKey, dict[LocationVariation, str]]:
         for location_key in self.LOCATIONS:
-            yield location_key, self.process_location(location_key)
+            yield location_key, self._process_location(location_key)
+
+    def get_location_name(self, location_key: LocationKey, location_variation: LocationVariation) -> str:
+        return self._names[location_key][location_variation]
 
 
 class LocationProcessor(JsonFileProcessor):
@@ -93,7 +96,7 @@ class LocationProcessor(JsonFileProcessor):
 
     @classmethod
     @returns(dict)
-    def parse_season(cls, season: str) -> dict[FishId, LocationVariation]:
+    def _parse_season(cls, season: str) -> dict[FishId, LocationVariation]:
         if season in cls.SEASON_SKIP:
             return
 
@@ -104,28 +107,24 @@ class LocationProcessor(JsonFileProcessor):
     @classmethod
     @returns(dict)
     @returns(skip_empty_values)
-    def parse_location_value(cls, value: str) -> dict[Season, dict[FishId, LocationVariation]]:
+    def _parse_location_value(cls, value: str) -> dict[Season, dict[FishId, LocationVariation]]:
         for season_name, season_value in zip(cls.SEASONS, value.split('/')[4:8]):
-            yield season_name, cls.parse_season(season_value)
+            yield season_name, cls._parse_season(season_value)
 
     @cached_property
     @returns(dict)
     @returns(skip_empty_values)
-    def data(self) -> dict[LocationKey, dict[Season, dict[FishId, LocationVariation]]]:
-        for key, value in self.raw_data.items():
+    def _locations(self) -> dict[LocationKey, dict[Season, dict[FishId, LocationVariation]]]:
+        for key, value in self._raw_data.items():
             if key in self.SKIP_LOCATIONS:
                 continue
-            yield key, self.parse_location_value(value)
+            yield key, self._parse_location_value(value)
 
     @cached_property
     def _location_name_processor(self) -> LocationNameProcessor:
         return self.parent.get_processor(LocationNameProcessor)
 
-    @property
-    def location_name_lookup(self):
-        return self._location_name_processor.location_names
-
-    def get_fish_location_data(
+    def _get_fish_location_data(
             self,
             location_key: LocationKey,
             location_var: LocationVariation,
@@ -141,7 +140,7 @@ class LocationProcessor(JsonFileProcessor):
                     self.RESULT_LOCATION_KEY: location_key,
                     self.RESULT_LOCATION_VARIATION: var,
                     self.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
-                    self.RESULT_LOCATION_NAME: self.location_name_lookup[location_key][var],
+                    self.RESULT_LOCATION_NAME: self._location_name_processor.get_location_name(location_key, var),
                     self.RESULT_SEASON: season,
                 }
             return
@@ -150,17 +149,17 @@ class LocationProcessor(JsonFileProcessor):
             self.RESULT_LOCATION_KEY: location_key,
             self.RESULT_LOCATION_VARIATION: location_var,
             self.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
-            self.RESULT_LOCATION_NAME: self.location_name_lookup[location_key][location_var],
+            self.RESULT_LOCATION_NAME: self._location_name_processor.get_location_name(location_key, location_var),
             self.RESULT_SEASON: season,
         }
 
     @cached_property
     @returns(merge)
-    def rearranged_data(self) -> dict[FishId, list]:
-        for location_key, location_fish in self.data.items():
+    def _fish_locations(self) -> dict[FishId, list]:
+        for location_key, location_fish in self._locations.items():
             for season, season_fish in location_fish.items():
                 for fish_id, location_var in season_fish.items():
-                    for fish_location in self.get_fish_location_data(
+                    for fish_location in self._get_fish_location_data(
                             location_key,
                             location_var,
                             season,
@@ -168,5 +167,5 @@ class LocationProcessor(JsonFileProcessor):
                         yield fish_id, fish_location
 
     def __call__(self, result: dict):
-        for fish_id, fish_locations in self.rearranged_data.items():
+        for fish_id, fish_locations in self._fish_locations.items():
             result[FishProcessor.RESULT_KEY][fish_id][self.RESULT_SUBKEY] = fish_locations
