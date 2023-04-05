@@ -31,17 +31,37 @@ class LanguageProcessor:
 
     @classmethod
     @returns(list)
-    def run_all(cls, game_data_dir: str, output: str, game_version: str) -> list[str]:
+    def run_all(
+            cls,
+            game_data_dir: str,
+            output: str,
+            game_version: str,
+            processors: typing.Sequence[typing.Type['AbstractProcessor']],
+    ) -> list[str]:
         for lang_code in cls.LANGUAGES:
-            processor = cls(game_data_dir, output, game_version, lang_code)
+            processor = cls(
+                game_data_dir,
+                output,
+                game_version,
+                lang_code,
+                processors,
+            )
             processor()
             yield processor.output_file_name
 
-    def __init__(self, game_data_dir: str, output: str, game_version: str, lang_code: LangCode):
+    def __init__(
+            self,
+            game_data_dir: str,
+            output: str,
+            game_version: str,
+            lang_code: LangCode,
+            processors: typing.Sequence[typing.Type['AbstractProcessor']],
+    ):
         self.game_data_dir = game_data_dir
         self.output = output
         self.game_version = game_version
         self.lang_code = lang_code
+        self.processors = processors
 
     def translate(
             self,
@@ -61,12 +81,8 @@ class LanguageProcessor:
 
     @property
     def _processors(self) -> typing.Iterable['AbstractProcessor']:
-        from .fish import FishProcessor
-        yield FishProcessor(self)
-        from .locations import LocationProcessor
-        yield LocationProcessor(self)
-        from .bundles import AllBundleProcessor
-        yield AllBundleProcessor(self)
+        for processor_cls in self.processors:
+            yield processor_cls(self)
 
     @cached_property
     def data(self):
