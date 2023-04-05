@@ -5,9 +5,8 @@ from functools import cached_property
 from returns import returns
 
 from utils import skip_empty_values, merge
-from .base import JsonFileProcessor
+from .base import JsonFileProcessor, AbstractProcessor
 from .fish import FishProcessor
-from .name_mapping import NameMappingMixin
 
 FishId = typing.TypeVar('FishId', bound=str)
 LocationVariation = typing.TypeVar('LocationVariation', bound=str)
@@ -15,63 +14,62 @@ Season = typing.TypeVar('Season', bound=str)
 LocationKey = typing.TypeVar('LocationKey', bound=str)
 
 
-class LocationNameProcessor(JsonFileProcessor, NameMappingMixin):
-    FILENAME = os.path.join('Strings', 'StringsFromCSFiles')
-
+class LocationNameProcessor(AbstractProcessor):
     # https://stardewvalleywiki.com/Modding:Location_data#GameLocation_Names
-    # TODO localize secondary names
-    MAPPING = {
-        'UndergroundMine': ('MapPage.cs.11098', None),
-        'Desert': ('MapPage.cs.11062', None),
-        'Forest': ('MapPage.cs.11186', None),  # Cindersap Forest
-        'Town': ('MapPage.cs.11190', None),  # Pelican Town
-        'Mountain': ('MapPage.cs.11177', None),  # Mountain Lake
-        'Backwoods': ('MapPage.cs.11180', None),
-        'Beach': ('MapPage.cs.11174', None),
-        'Woods': ('MapPage.cs.11114', None),  # Secret Woods
-        'Sewer': ('MapPage.cs.11089', None),
-        'BugLand': (None, 'Mutant Bug Lair'),
-        'WitchSwamp': (None, "Witch's Swamp"),
-        'IslandNorth': ('IslandName', 'north'),
-        'IslandSouth': ('IslandName', 'south'),
-        'IslandWest': ('IslandName', 'west'),
-        'IslandSouthEast': ('IslandName', 'southeast'),
-        'IslandSouthEastCave': (None, 'Pirate Cove'),
-        'IslandSecret': ('IslandName', 'secret location'),
+    # https://stardewvalleywiki.com/Modding:Fish_data#Spawn_locations
+    # TODO localize
+    LOCATIONS = {
+        'UndergroundMine': ('Mines', None),
+        'Desert': ('Calico Desert', None),
+        'Forest': (
+            'Cindersap Forest',
+            {
+                '0': 'river',
+                '1': 'pond',
+            },
+        ),
+        'Town': ('Pelican Town', None),
+        'Mountain': ('Mountain Lake', None),
+        'Backwoods': ('Backwoods', None),
+        'Beach': ('Pelican Beach', None),
+        'Woods': ('Secret Woods', None),
+        'Sewer': ('Sewer', None),
+        'BugLand': ('Mutant Bug Lair', None),
+        'WitchSwamp': ("Witch's Swamp", None),
+        'IslandNorth': ('Ginger Island north', None),
+        'IslandSouth': ('Ginger Island south', None),
+        'IslandWest': (
+            'Ginger Island west',
+            {
+                '1': 'ocean',
+                '2': 'freshwater',
+            }
+        ),
+        'IslandSouthEast': ('Ginger Island southeast', None),
+        'IslandSouthEastCave': ('Pirate Cove', None),
+        'IslandSecret': ('Ginger Island secret location', None),
     }
 
     LOCATION_VARIATION_ANY = '-1'
-
-    # https://stardewvalleywiki.com/Modding:Fish_data#Spawn_locations
-    # TODO localize following words
-    LOCATION_VARIATIONS = {
-        'Forest': {
-            '0': 'river',
-            '1': 'pond',
-        },
-        'IslandWest': {
-            '1': 'ocean',
-            '2': 'freshwater',
-        },
-    }
 
     RESULT_KEY = 'location_names'
 
     @returns(dict)
     def process_location(self, location_key: LocationKey) -> dict[LocationVariation, str]:
-        location_name = self.get_localized_name(location_key)
-        if location_key not in self.LOCATION_VARIATIONS:
+        location_name_locale_dict, variations = self.LOCATIONS[location_key]
+        location_name = self.parent.translate(location_name_locale_dict)
+        if variations is None:
             yield self.LOCATION_VARIATION_ANY, location_name
             return
 
-        for variation, variation_locale_dict in self.LOCATION_VARIATIONS[location_key].items():
+        for variation, variation_locale_dict in variations.items():
             variation_name = self.parent.translate(variation_locale_dict)
             yield variation, f'{location_name} ({variation_name})'
 
     @cached_property
     @returns(dict)
     def location_names(self) -> dict[LocationKey, dict[LocationVariation, str]]:
-        for location_key in self.MAPPING:
+        for location_key in self.LOCATIONS:
             yield location_key, self.process_location(location_key)
 
     def __call__(self, result: dict):
@@ -138,11 +136,12 @@ class LocationProcessor(JsonFileProcessor):
             location_var: LocationVariation,
             season: Season,
     ) -> typing.Iterator[dict[str, typing.Any]]:
+        variations = LocationNameProcessor.LOCATIONS[location_key][1]
         if (
-                location_key in LocationNameProcessor.LOCATION_VARIATIONS
+                variations is not None
                 and location_var == LocationNameProcessor.LOCATION_VARIATION_ANY
         ):
-            for var in LocationNameProcessor.LOCATION_VARIATIONS[location_key]:
+            for var in variations:
                 yield {
                     self.RESULT_LOCATION_KEY: location_key,
                     self.RESULT_LOCATION_VARIATION: var,
