@@ -1,4 +1,5 @@
 import os
+import typing
 from functools import cached_property
 
 from returns import returns
@@ -47,7 +48,7 @@ class BundleProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(dict)
-    def bundles(self) -> dict[str, dict]:
+    def _bundles(self) -> dict[str, dict]:
         for key, value in self._raw_data.items():
             # area_name, bundle_key = key.split('/')
             bundle = self._parse_bundle_value(value)
@@ -55,11 +56,17 @@ class BundleProcessor(JsonFileProcessor):
             # bundle[self.RESULT_BUNDLE_KEY] = int(bundle_key)
             yield bundle[self.RESULT_BUNDLE_EN_NAME], bundle
 
+    def __iter__(self) -> typing.Iterator[tuple[str, dict]]:
+        yield from self._bundles.items()
+
+    def __contains__(self, en_name: str) -> bool:
+        return en_name in self._bundles
+
 
 class RemixedBundleNameProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Strings', 'BundleNames')
 
-    def get_localized_name(self, en_name: str) -> str | None:
+    def __getitem__(self, en_name: str) -> str | None:
         return self._raw_data.get(en_name)
 
 
@@ -89,7 +96,7 @@ class RemixedBundleProcessor(JsonFileProcessor):
 
     def _process_bundle(self, bundle_raw) -> dict:
         name = bundle_raw['Name']
-        localized_name = self._bundle_name_processor.get_localized_name(name)
+        localized_name = self._bundle_name_processor[name]
         return {
             BundleProcessor.RESULT_BUNDLE_EN_NAME: name,
             BundleProcessor.RESULT_BUNDLE_NAME: localized_name,
@@ -98,13 +105,19 @@ class RemixedBundleProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(dict)
-    def bundles(self) -> dict[str, dict]:
+    def _bundles(self) -> dict[str, dict]:
         for area in self._raw_data:
             # area_name = area['AreaName']
             for bundle_raw in self._area_bundles_raw(area):
                 bundle = self._process_bundle(bundle_raw)
                 # bundle[BundleProcessor.RESULT_BUNDLE_AREA_NAME] = area_name
                 yield bundle[BundleProcessor.RESULT_BUNDLE_EN_NAME], bundle
+
+    def __iter__(self) -> typing.Iterator[tuple[str, dict]]:
+        yield from self._bundles.items()
+
+    def __contains__(self, en_name: str) -> bool:
+        return en_name in self._bundles
 
 
 class AllBundleProcessor(AbstractProcessor):
@@ -121,10 +134,10 @@ class AllBundleProcessor(AbstractProcessor):
     @cached_property
     @returns(dict)
     def _bundles(self) -> dict[str, dict]:
-        yield from self._bundle_processor.bundles.items()
+        yield from self._bundle_processor
 
-        for en_name, bundle in self._remixed_bundle_processor.bundles.items():
-            if en_name in self._bundle_processor.bundles:
+        for en_name, bundle in self._remixed_bundle_processor:
+            if en_name in self._bundle_processor:
                 continue
             yield en_name, bundle
 

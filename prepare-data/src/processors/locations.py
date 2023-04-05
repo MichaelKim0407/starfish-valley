@@ -70,7 +70,8 @@ class LocationNameProcessor(AbstractProcessor):
         for location_key in self.LOCATIONS:
             yield location_key, self._process_location(location_key)
 
-    def get_location_name(self, location_key: LocationKey, location_variation: LocationVariation) -> str:
+    def __getitem__(self, key) -> str:
+        location_key, location_variation = key
         return self._names[location_key][location_variation]
 
 
@@ -140,7 +141,7 @@ class LocationProcessor(JsonFileProcessor):
                     self.RESULT_LOCATION_KEY: location_key,
                     self.RESULT_LOCATION_VARIATION: var,
                     self.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
-                    self.RESULT_LOCATION_NAME: self._location_name_processor.get_location_name(location_key, var),
+                    self.RESULT_LOCATION_NAME: self._location_name_processor[location_key, var],
                     self.RESULT_SEASON: season,
                 }
             return
@@ -149,7 +150,7 @@ class LocationProcessor(JsonFileProcessor):
             self.RESULT_LOCATION_KEY: location_key,
             self.RESULT_LOCATION_VARIATION: location_var,
             self.RESULT_LOCATION_VARIATION_ORIGINAL: location_var,
-            self.RESULT_LOCATION_NAME: self._location_name_processor.get_location_name(location_key, location_var),
+            self.RESULT_LOCATION_NAME: self._location_name_processor[location_key, location_var],
             self.RESULT_SEASON: season,
         }
 

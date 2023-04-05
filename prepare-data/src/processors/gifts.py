@@ -18,7 +18,7 @@ class CharacterNameProcessor(JsonFileProcessor):
         for character_key, value in self._raw_data.items():
             yield character_key, value.split('/')[-1]
 
-    def get_localized_name(self, character_key: str) -> str:
+    def __getitem__(self, character_key: str) -> str:
         return self._names[character_key]
 
 
@@ -70,7 +70,7 @@ class GiftProcessor(JsonFileProcessor):
     @returns(Merge(2))
     def _item_tastes(self) -> dict[str, dict[str, list[str]]]:
         for character_key, character_gift_tastes in self._character_gift_tastes.items():
-            character_name = self._character_name_processor.get_localized_name(character_key)
+            character_name = self._character_name_processor[character_key]
             for taste_type, item_ids in character_gift_tastes.items():
                 for item_id in item_ids:
                     yield item_id, (taste_type, character_name)
