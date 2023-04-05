@@ -3,11 +3,10 @@ import os
 from functools import cached_property
 
 from . import t
-from .languages import LanguageProcessor
 
 
 class AbstractProcessor:
-    def __init__(self, parent: LanguageProcessor):
+    def __init__(self, parent: 'LanguageProcessor'):
         self.parent = parent
 
     def __call__(self, result: t.Result):
@@ -21,7 +20,7 @@ class FileProcessor(AbstractProcessor):
 
     def __init__(
             self,
-            parent: LanguageProcessor,
+            parent: 'LanguageProcessor',
             filename: str = None,
             ext: str = None,
             use_locale: bool = None,
@@ -59,3 +58,6 @@ class JsonFileProcessor(FileProcessor):
     def _raw_data(self):
         with open(self._source_file_name) as f:
             return json.load(f)
+
+
+from .languages import LanguageProcessor
