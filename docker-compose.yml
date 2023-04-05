@@ -19,3 +19,11 @@ services:
       - ./prepare-data:/prepare-data
       - ${GAME_DIR}:/game
       - ./data:/output
+
+  recommend:
+    image: python:3.11
+    volumes:
+      - ./recommend:/recommend
+      - ./data:/data
+    working_dir: /recommend/src
+    command: python main.py
