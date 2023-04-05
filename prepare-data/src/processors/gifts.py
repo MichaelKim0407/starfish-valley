@@ -4,6 +4,7 @@ from functools import cached_property
 from returns import returns
 
 from utils import Merge
+from . import t
 from .base import JsonFileProcessor
 from .fish import FishProcessor
 
@@ -13,12 +14,12 @@ class CharacterNameProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(dict)
-    def _names(self) -> dict[str, str]:
+    def _names(self) -> dict[t.CharacterKey, t.CharacterName]:
         # https://stardewvalleywiki.com/Modding:NPC_data#Basic_info
         for character_key, value in self._raw_data.items():
             yield character_key, value.split('/')[-1]
 
-    def __getitem__(self, character_key: str) -> str:
+    def __getitem__(self, character_key: t.CharacterKey) -> t.CharacterName:
         return self._names[character_key]
 
 
@@ -37,15 +38,15 @@ class GiftProcessor(JsonFileProcessor):
     }
 
     @classmethod
-    def _should_skip(cls, character_name: str) -> bool:
+    def _should_skip(cls, character_key: t.CharacterKey) -> bool:
         for skip_prefix in cls.SKIP_PREFIX:
-            if character_name.startswith(skip_prefix):
+            if character_key.startswith(skip_prefix):
                 return True
         return False
 
     @classmethod
     @returns(dict)
-    def _parse_character_value(cls, value: str) -> dict[str, list[str]]:
+    def _parse_character_value(cls, value: str) -> t.CharacterPreferences:
         # https://stardewvalleywiki.com/Modding:Gift_taste_data#Format
         elems = value.split('/')
         for key, i in cls.INDEXES.items():
@@ -56,7 +57,7 @@ class GiftProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(dict)
-    def _character_gift_tastes(self) -> dict[str, dict[str, list[str]]]:
+    def _character_gift_tastes(self) -> dict[t.CharacterKey, t.CharacterPreferences]:
         for character_key, value in self._raw_data.items():
             if self._should_skip(character_key):
                 continue
@@ -68,7 +69,7 @@ class GiftProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(Merge(2))
-    def _item_tastes(self) -> dict[str, dict[str, list[str]]]:
+    def _item_tastes(self) -> dict[t.FishId, dict[t.CharacterPreferenceType, list[t.CharacterName]]]:
         for character_key, character_gift_tastes in self._character_gift_tastes.items():
             character_name = self._character_name_processor[character_key]
             for taste_type, item_ids in character_gift_tastes.items():

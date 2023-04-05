@@ -5,13 +5,9 @@ from functools import cached_property
 from returns import returns
 
 from utils import skip_empty_values, merge
+from . import t
 from .base import JsonFileProcessor, AbstractProcessor
 from .fish import FishProcessor
-
-FishId = typing.TypeVar('FishId', bound=str)
-LocationVariation = typing.TypeVar('LocationVariation', bound=str)
-Season = typing.TypeVar('Season', bound=str)
-LocationKey = typing.TypeVar('LocationKey', bound=str)
 
 
 class LocationNameProcessor(AbstractProcessor):
@@ -53,7 +49,7 @@ class LocationNameProcessor(AbstractProcessor):
     LOCATION_VARIATION_ANY = '-1'
 
     @returns(dict)
-    def _process_location(self, location_key: LocationKey) -> dict[LocationVariation, str]:
+    def _process_location(self, location_key: t.LocationKey) -> dict[t.LocationVariation, t.LocationName]:
         location_name_locale_dict, variations = self.LOCATIONS[location_key]
         location_name = self.parent.translate(location_name_locale_dict)
         if variations is None:
@@ -66,11 +62,11 @@ class LocationNameProcessor(AbstractProcessor):
 
     @cached_property
     @returns(dict)
-    def _names(self) -> dict[LocationKey, dict[LocationVariation, str]]:
+    def _names(self) -> dict[t.LocationKey, dict[t.LocationVariation, t.LocationName]]:
         for location_key in self.LOCATIONS:
             yield location_key, self._process_location(location_key)
 
-    def __getitem__(self, key) -> str:
+    def __getitem__(self, key: tuple[t.LocationKey, t.LocationVariation]) -> t.LocationName:
         location_key, location_variation = key
         return self._names[location_key][location_variation]
 
@@ -97,25 +93,25 @@ class LocationProcessor(JsonFileProcessor):
 
     @classmethod
     @returns(dict)
-    def _parse_season(cls, season: str) -> dict[FishId, LocationVariation]:
-        if season in cls.SEASON_SKIP:
+    def _parse_season_value(cls, value: str) -> dict[t.FishId, t.LocationVariation]:
+        if value in cls.SEASON_SKIP:
             return
 
-        items = season.split(' ')
+        items = value.split(' ')
         for i in range(0, len(items), 2):
             yield items[i], items[i + 1]
 
     @classmethod
     @returns(dict)
     @returns(skip_empty_values)
-    def _parse_location_value(cls, value: str) -> dict[Season, dict[FishId, LocationVariation]]:
+    def _parse_location_value(cls, value: str) -> dict[t.Season, dict[t.FishId, t.LocationVariation]]:
         for season_name, season_value in zip(cls.SEASONS, value.split('/')[4:8]):
-            yield season_name, cls._parse_season(season_value)
+            yield season_name, cls._parse_season_value(season_value)
 
     @cached_property
     @returns(dict)
     @returns(skip_empty_values)
-    def _locations(self) -> dict[LocationKey, dict[Season, dict[FishId, LocationVariation]]]:
+    def _locations(self) -> dict[t.LocationKey, dict[t.Season, dict[t.FishId, t.LocationVariation]]]:
         for key, value in self._raw_data.items():
             if key in self.SKIP_LOCATIONS:
                 continue
@@ -127,10 +123,10 @@ class LocationProcessor(JsonFileProcessor):
 
     def _get_fish_location_data(
             self,
-            location_key: LocationKey,
-            location_var: LocationVariation,
-            season: Season,
-    ) -> typing.Iterator[dict[str, typing.Any]]:
+            location_key: t.LocationKey,
+            location_var: t.LocationVariation,
+            season: t.Season,
+    ) -> typing.Iterator[dict]:
         variations = LocationNameProcessor.LOCATIONS[location_key][1]
         if (
                 variations is not None
@@ -156,7 +152,7 @@ class LocationProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(merge)
-    def _fish_locations(self) -> dict[FishId, list]:
+    def _fish_locations(self) -> dict[t.FishId, list[dict]]:
         for location_key, location_fish in self._locations.items():
             for season, season_fish in location_fish.items():
                 for fish_id, location_var in season_fish.items():

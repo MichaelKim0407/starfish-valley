@@ -5,12 +5,11 @@ from functools import cached_property
 
 from returns import returns
 
-LangCode = typing.TypeVar('LangCode', bound=str | None)
-LocaleDict = dict[LangCode, str | None]
+from . import t
 
 
 class LanguageProcessor:
-    LANGUAGES: LocaleDict = {
+    LANGUAGES: t.LocaleDict = {
         None: 'English',  # English
         'ru-RU': 'Русский',  # Russian
         'zh-CN': '简体中文',  # Simplified Chinese
@@ -36,7 +35,7 @@ class LanguageProcessor:
             game_data_dir: str,
             output: str,
             game_version: str,
-            processors: typing.Sequence[typing.Type['AbstractProcessor']],
+            processors: typing.Sequence[typing.Type['Processor']],
     ) -> list[str]:
         for lang_code in cls.LANGUAGES:
             processor = cls(
@@ -54,8 +53,8 @@ class LanguageProcessor:
             game_data_dir: str,
             output: str,
             game_version: str,
-            lang_code: LangCode,
-            processors: typing.Sequence[typing.Type['AbstractProcessor']],
+            lang_code: t.LangCode,
+            processors: typing.Sequence[typing.Type['Processor']],
     ):
         self.game_data_dir = game_data_dir
         self.output = output
@@ -65,17 +64,14 @@ class LanguageProcessor:
 
         self._singletons = {}
 
-    def translate(
-            self,
-            locale_dict: LocaleDict | str | None,
-    ) -> str | None:
-        if locale_dict is None or isinstance(locale_dict, str):
-            return locale_dict
+    def translate(self, translatable: t.Translatable) -> str | None:
+        if translatable is None or isinstance(translatable, str):
+            return translatable
 
         lang_code = self.lang_code
-        if lang_code not in locale_dict:
+        if lang_code not in translatable:
             lang_code = None
-        return locale_dict[lang_code]
+        return translatable[lang_code]
 
     @cached_property
     def _language(self) -> str:
@@ -87,12 +83,12 @@ class LanguageProcessor:
         return self._singletons[processor_cls]
 
     @property
-    def _processors(self) -> typing.Iterable['AbstractProcessor']:
+    def _processors(self) -> typing.Iterable['Processor']:
         for processor_cls in self.processors:
             yield self.get_processor(processor_cls)
 
     @cached_property
-    def _result(self):
+    def _result(self) -> dict:
         result = {
             self.RESULT_VERSION: self.game_version,
             self.RESULT_LANG_CODE: self.lang_code,
@@ -116,4 +112,5 @@ class LanguageProcessor:
 
 
 from .base import AbstractProcessor
+
 Processor = typing.TypeVar('Processor', bound=AbstractProcessor)

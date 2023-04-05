@@ -5,6 +5,7 @@ from functools import cached_property
 from returns import returns
 
 from utils import merge
+from . import t
 from .base import AbstractProcessor, JsonFileProcessor
 from .fish import FishProcessor
 
@@ -35,7 +36,7 @@ class BundleProcessorMixin(AbstractProcessor):
 
     @cached_property
     @returns(merge)
-    def _fish_bundles(self) -> dict[str, list[dict]]:
+    def _fish_bundles(self) -> dict[t.FishId, list[dict]]:
         for bundle in self._bundles:
             for fish_id in bundle[self.RESULT_BUNDLE_ITEMS]:
                 yield fish_id, {
@@ -56,7 +57,7 @@ class BundleProcessor(JsonFileProcessor, BundleProcessorMixin):
         return self.parent.get_processor(FishProcessor)
 
     @returns(list)
-    def _parse_items(self, items: str) -> list[str]:
+    def _parse_items(self, items: str) -> list[t.FishId]:
         values = items.split(' ')
         for i in range(0, len(values), 3):
             item_id = values[i]
@@ -91,7 +92,7 @@ class BundleProcessor(JsonFileProcessor, BundleProcessorMixin):
 class RemixedBundleNameProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Strings', 'BundleNames')
 
-    def __getitem__(self, en_name: str) -> str | None:
+    def __getitem__(self, en_name: t.BundleEnName) -> t.BundleName | None:
         return self._raw_data.get(en_name)
 
 
@@ -111,7 +112,7 @@ class RemixedBundleProcessor(JsonFileProcessor, BundleProcessorMixin):
         return self.parent.get_processor(FishProcessor)
 
     @returns(list)
-    def _parse_items(self, items: str) -> list[str]:
+    def _parse_items(self, items: str) -> list[t.FishId]:
         for item in items.split(','):
             item = item.strip()
             count, item_en_name = item.split(' ', maxsplit=1)

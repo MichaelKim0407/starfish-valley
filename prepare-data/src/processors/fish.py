@@ -4,6 +4,7 @@ from functools import cached_property
 from returns import returns
 
 from utils import convert_items
+from . import t
 from .base import JsonFileProcessor
 
 
@@ -33,19 +34,19 @@ class FishProcessor(JsonFileProcessor):
 
     @staticmethod
     @returns(list)
-    def _parse_time_ranges(time_ranges: str) -> list[tuple[int, int]]:
+    def _parse_time_ranges(time_ranges: str) -> t.TimeRanges:
         hours = convert_items(time_ranges.split(' '), int)
         for i in range(0, len(hours), 2):
             yield hours[i], hours[i + 1]
 
     @classmethod
-    def _parse_weather(cls, weather: str) -> tuple[str, ...]:
+    def _parse_weather(cls, weather: str) -> t.Weathers:
         if weather in cls.WEATHER_MAP:
             return cls.WEATHER_MAP[weather]
         else:
             return (weather,)
 
-    def _parse_fish_value(self, value) -> dict | None:
+    def _parse_fish_value(self, value: str) -> dict | None:
         # https://stardewvalleywiki.com/Modding:Fish_data#Fish_data_and_spawn_criteria
         name, difficulty, *other_fields = value.split('/')
         if difficulty in self.DIFFICULTY_SKIP:
@@ -91,7 +92,7 @@ class FishProcessor(JsonFileProcessor):
 
     @cached_property
     @returns(dict)
-    def _fish(self) -> dict[str, dict]:
+    def _fish(self) -> dict[t.FishId, dict]:
         for key, value in self._raw_data.items():
             parsed = self._parse_fish_value(value)
             if not parsed:
@@ -99,16 +100,16 @@ class FishProcessor(JsonFileProcessor):
             parsed[self.RESULT_ID] = key
             yield key, parsed
 
-    def __contains__(self, fish_id: str) -> bool:
+    def __contains__(self, fish_id: t.FishId) -> bool:
         return fish_id in self._fish
 
     @cached_property
     @returns(dict)
-    def _en_name_id_map(self) -> dict[str, str]:
+    def _en_name_id_map(self) -> dict[t.FishEnName, t.FishId]:
         for fish_id, fish in self._fish.items():
             yield fish[self.RESULT_EN_NAME], fish_id
 
-    def get_id_from_en_name(self, en_name: str) -> str | None:
+    def get_id_from_en_name(self, en_name: t.FishEnName) -> t.FishId | None:
         return self._en_name_id_map.get(en_name)
 
     def __call__(self, result: dict):
