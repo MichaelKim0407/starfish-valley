@@ -11,8 +11,6 @@ from .fish import FishProcessor
 class BundleProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Data', 'Bundles')
 
-    # RESULT_BUNDLE_AREA_NAME = 'area_name'
-    # RESULT_BUNDLE_KEY = 'key'
     RESULT_BUNDLE_EN_NAME = 'en_name'
     RESULT_BUNDLE_NAME = 'name'
     RESULT_BUNDLE_ITEMS = 'items'
@@ -50,10 +48,7 @@ class BundleProcessor(JsonFileProcessor):
     @returns(dict)
     def _bundles(self) -> dict[str, dict]:
         for key, value in self._raw_data.items():
-            # area_name, bundle_key = key.split('/')
             bundle = self._parse_bundle_value(value)
-            # bundle[self.RESULT_BUNDLE_AREA_NAME] = area_name
-            # bundle[self.RESULT_BUNDLE_KEY] = int(bundle_key)
             yield bundle[self.RESULT_BUNDLE_EN_NAME], bundle
 
     def __iter__(self) -> typing.Iterator[tuple[str, dict]]:
@@ -107,10 +102,8 @@ class RemixedBundleProcessor(JsonFileProcessor):
     @returns(dict)
     def _bundles(self) -> dict[str, dict]:
         for area in self._raw_data:
-            # area_name = area['AreaName']
             for bundle_raw in self._area_bundles_raw(area):
                 bundle = self._process_bundle(bundle_raw)
-                # bundle[BundleProcessor.RESULT_BUNDLE_AREA_NAME] = area_name
                 yield bundle[BundleProcessor.RESULT_BUNDLE_EN_NAME], bundle
 
     def __iter__(self) -> typing.Iterator[tuple[str, dict]]:
