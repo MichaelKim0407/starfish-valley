@@ -12,6 +12,8 @@ services:
     working_dir: /prepare-data/requirements
 
   prepare-data:
+    profiles:
+      - prepare-data
     build:
       context: .
       dockerfile: dockerfiles/prepare-data.dockerfile
@@ -20,10 +22,21 @@ services:
       - ${GAME_DIR}:/game
       - ./data:/output
 
+  dependency-lock-recommend:
+    profiles:
+      - dependency-lock
+    build:
+      context: .
+      dockerfile: dockerfiles/pip-tools.dockerfile
+    volumes:
+      - ./recommend/requirements:/recommend/requirements
+    working_dir: /recommend/requirements
+
   recommend:
-    image: python:3.11
+    build:
+      context: .
+      dockerfile: dockerfiles/recommend.dockerfile
     volumes:
       - ./recommend:/recommend
       - ./data:/data
     working_dir: /recommend/src
-    command: python main.py
