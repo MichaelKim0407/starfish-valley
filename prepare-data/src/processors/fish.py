@@ -27,6 +27,9 @@ class FishProcessor(JsonFileProcessor):
     RESULT_MAX_DEPTH = 'max_depth'
     RESULT_SPAWN_MULTI = 'spawn_multi'
     RESULT_DEPTH_MULTI = 'depth_multi'
+    RESULT_BEHAVIOR = 'behavior'
+    RESULT_DIFFICULTY = 'difficulty'
+    RESULT_SIZE_RANGE = 'size_range'
 
     @staticmethod
     @returns(list)
@@ -76,11 +79,14 @@ class FishProcessor(JsonFileProcessor):
 
             self.RESULT_TIME_RANGES: self._parse_time_ranges(time_ranges),
             self.RESULT_WEATHER: self._parse_weather(weather),
-            self.RESULT_MIN_LEVEL: int(min_size),
+            self.RESULT_MIN_LEVEL: int(min_level),
 
             self.RESULT_MAX_DEPTH: int(max_depth),
             self.RESULT_SPAWN_MULTI: float(spawn_multi),
             self.RESULT_DEPTH_MULTI: float(depth_multi),
+            self.RESULT_BEHAVIOR: behavior,
+            self.RESULT_DIFFICULTY: int(difficulty),
+            self.RESULT_SIZE_RANGE: (int(min_size), int(max_size)),
         }
 
     @cached_property
