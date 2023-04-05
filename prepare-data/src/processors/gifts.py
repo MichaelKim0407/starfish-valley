@@ -61,7 +61,7 @@ class GiftProcessor(JsonFileProcessor):
 
     @cached_property
     def _character_name_processor(self) -> CharacterNameProcessor:
-        return CharacterNameProcessor(self.parent)
+        return self.parent.get_processor(CharacterNameProcessor)
 
     def get_character_name(self, character_key: str) -> str:
         return self._character_name_processor.data[character_key]

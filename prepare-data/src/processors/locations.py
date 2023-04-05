@@ -52,8 +52,6 @@ class LocationNameProcessor(AbstractProcessor):
 
     LOCATION_VARIATION_ANY = '-1'
 
-    RESULT_KEY = 'location_names'
-
     @returns(dict)
     def process_location(self, location_key: LocationKey) -> dict[LocationVariation, str]:
         location_name_locale_dict, variations = self.LOCATIONS[location_key]
@@ -71,9 +69,6 @@ class LocationNameProcessor(AbstractProcessor):
     def location_names(self) -> dict[LocationKey, dict[LocationVariation, str]]:
         for location_key in self.LOCATIONS:
             yield location_key, self.process_location(location_key)
-
-    def __call__(self, result: dict):
-        result[self.RESULT_KEY] = self.location_names
 
 
 class LocationProcessor(JsonFileProcessor):
@@ -124,7 +119,7 @@ class LocationProcessor(JsonFileProcessor):
 
     @cached_property
     def _location_name_processor(self) -> LocationNameProcessor:
-        return LocationNameProcessor(self.parent)
+        return self.parent.get_processor(LocationNameProcessor)
 
     @property
     def location_name_lookup(self):

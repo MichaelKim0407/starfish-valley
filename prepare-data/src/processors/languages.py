@@ -63,6 +63,8 @@ class LanguageProcessor:
         self.lang_code = lang_code
         self.processors = processors
 
+        self._singletons = {}
+
     def translate(
             self,
             locale_dict: LocaleDict | str | None,
@@ -79,10 +81,15 @@ class LanguageProcessor:
     def language(self) -> str:
         return self.translate(self.LANGUAGES)
 
+    def get_processor(self, processor_cls: typing.Type['Processor']) -> 'Processor':
+        if processor_cls not in self._singletons:
+            self._singletons[processor_cls] = processor_cls(self)
+        return self._singletons[processor_cls]
+
     @property
     def _processors(self) -> typing.Iterable['AbstractProcessor']:
         for processor_cls in self.processors:
-            yield processor_cls(self)
+            yield self.get_processor(processor_cls)
 
     @cached_property
     def data(self):
@@ -109,3 +116,4 @@ class LanguageProcessor:
 
 
 from .base import AbstractProcessor
+Processor = typing.TypeVar('Processor', bound=AbstractProcessor)

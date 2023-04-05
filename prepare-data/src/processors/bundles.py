@@ -10,8 +10,6 @@ from .fish import FishProcessor
 class BundleProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Data', 'Bundles')
 
-    RESULT_KEY = 'bundles'
-
     # RESULT_BUNDLE_AREA_NAME = 'area_name'
     # RESULT_BUNDLE_KEY = 'key'
     RESULT_BUNDLE_EN_NAME = 'en_name'
@@ -57,24 +55,14 @@ class BundleProcessor(JsonFileProcessor):
             # bundle[self.RESULT_BUNDLE_KEY] = int(bundle_key)
             yield bundle[self.RESULT_BUNDLE_EN_NAME], bundle
 
-    def __call__(self, result: dict):
-        result[self.RESULT_KEY] = self.data
-
 
 class RemixedBundleNameProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Strings', 'BundleNames')
-
-    RESULT_KEY = 'bundle_names'
-
-    def __call__(self, result: dict):
-        result[self.RESULT_KEY] = self.raw_data
 
 
 class RemixedBundleProcessor(JsonFileProcessor):
     FILENAME = os.path.join('Data', 'RandomBundles')
     USE_LOCALE = False
-
-    RESULT_KEY = 'remixed_bundles'
 
     RESULT_BUNDLE_ITEM_EN_NAME = FishProcessor.RESULT_EN_NAME
 
@@ -94,7 +82,7 @@ class RemixedBundleProcessor(JsonFileProcessor):
 
     @cached_property
     def _bundle_name_processor(self) -> RemixedBundleNameProcessor:
-        return RemixedBundleNameProcessor(self.parent)
+        return self.parent.get_processor(RemixedBundleNameProcessor)
 
     def process_bundle(self, bundle_raw) -> dict:
         name = bundle_raw['Name']
@@ -115,20 +103,17 @@ class RemixedBundleProcessor(JsonFileProcessor):
                 # bundle[BundleProcessor.RESULT_BUNDLE_AREA_NAME] = area_name
                 yield bundle[BundleProcessor.RESULT_BUNDLE_EN_NAME], bundle
 
-    def __call__(self, result: dict):
-        result[self.RESULT_KEY] = self.data
-
 
 class AllBundleProcessor(AbstractProcessor):
     RESULT_SUBKEY = 'bundles'
 
     @cached_property
     def _bundle_processor(self) -> BundleProcessor:
-        return BundleProcessor(self.parent)
+        return self.parent.get_processor(BundleProcessor)
 
     @cached_property
     def _remixed_bundle_processor(self) -> RemixedBundleProcessor:
-        return RemixedBundleProcessor(self.parent)
+        return self.parent.get_processor(RemixedBundleProcessor)
 
     @cached_property
     @returns(dict)
