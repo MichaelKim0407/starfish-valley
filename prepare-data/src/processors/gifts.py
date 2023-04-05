@@ -44,16 +44,29 @@ class GiftProcessor(JsonFileProcessor):
                 return True
         return False
 
-    @classmethod
+    @cached_property
+    def _fish_processor(self) -> FishProcessor:
+        return self.parent.get_processor(FishProcessor)
+
+    @returns(list)
+    def _parse_item_ids(self, value: str) -> list[t.FishId]:
+        if not value:
+            return
+
+        for item_id in value.split(' '):
+            if item_id not in self._fish_processor:
+                continue
+            yield item_id
+
     @returns(dict)
-    def _parse_character_value(cls, value: str) -> t.CharacterPreferences:
+    def _parse_character_value(self, value: str) -> t.CharacterPreferences:
         # https://stardewvalleywiki.com/Modding:Gift_taste_data#Format
         elems = value.split('/')
-        for key, i in cls.INDEXES.items():
-            item_ids = elems[i]
+        for key, i in self.INDEXES.items():
+            item_ids = self._parse_item_ids(elems[i])
             if not item_ids:
                 continue
-            yield key, item_ids.split(' ')
+            yield key, item_ids
 
     @cached_property
     @returns(dict)
@@ -61,7 +74,10 @@ class GiftProcessor(JsonFileProcessor):
         for character_key, value in self._raw_data.items():
             if self._should_skip(character_key):
                 continue
-            yield character_key, self._parse_character_value(value)
+            character = self._parse_character_value(value)
+            if not character:
+                continue
+            yield character_key, character
 
     @cached_property
     def _character_name_processor(self) -> CharacterNameProcessor:
@@ -79,6 +95,4 @@ class GiftProcessor(JsonFileProcessor):
     def __call__(self, result: dict):
         fish = result[FishProcessor.RESULT_KEY]
         for item_id, item_tastes in self._item_tastes.items():
-            if item_id not in fish:
-                continue
             fish[item_id][self.RESULT_SUBKEY] = item_tastes
