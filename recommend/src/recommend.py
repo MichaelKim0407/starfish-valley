@@ -210,11 +210,13 @@ class FishRecommendationScoreCalculator:
         yield 'Name', self.output['Name']
         if not self.parent.is_english:
             yield 'English name', self.fish['en_name']
+        yield 'Required level', self.fish['min_level']
 
         yield 'Score', self.output['Score']
         yield 'Factors', self.factors
 
         yield 'Locations', self._output_locations_verbose
+        yield 'Available seasons', self._available_seasons
 
         yield 'Hours', self.output['Hours']
 
