@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 
 from config import Config
+from recommend import RecommendationGenerator
 
 
 def main(args=None):
@@ -11,7 +12,9 @@ def main(args=None):
     args = parser.parse_args(args)
 
     conf = Config(args.config_file)
-    print(conf.data_file, conf.unlocked_areas, conf.fishing_level)
+    recommend_gen = RecommendationGenerator(conf, args.season, args.weather)
+    from pprint import pprint
+    pprint(recommend_gen._allowed_fish)
 
 
 if __name__ == '__main__':
