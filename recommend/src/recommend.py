@@ -144,8 +144,20 @@ class FishRecommendationScoreCalculator:
             return 0.0
 
     @cached_property
+    @returns(merge)
+    def _gifts(self) -> dict[str, list[dict]]:
+        if not self.fish['gifts']:
+            return
+
+        for preference_type, characters in self.fish['gifts'].items():
+            for character in characters:
+                if self.fish['id'] not in self._config.gifts(character['key']):
+                    continue
+                yield preference_type, character
+
+    @cached_property
     def _gift_factor(self) -> float:
-        if self.fish['gifts']:
+        if self._gifts:
             return self._config.rec_gift_factor
         else:
             return 0.0
@@ -189,9 +201,7 @@ class FishRecommendationScoreCalculator:
     @cached_property
     @returns(merge)
     def _output_gifts(self) -> dict[list[str]]:
-        if not self.fish['gifts']:
-            return
-        for preference_type, characters in self.fish['gifts'].items():
+        for preference_type, characters in self._gifts.items():
             preference_type = self._output_preference_type(preference_type)
             for character in characters:
                 yield preference_type, character['name']
@@ -225,9 +235,7 @@ class FishRecommendationScoreCalculator:
     @cached_property
     @returns(merge)
     def _output_gifts_verbose(self) -> dict[list[str]]:
-        if not self.fish['gifts']:
-            return
-        for preference_type, characters in self.fish['gifts'].items():
+        for preference_type, characters in self._gifts.items():
             preference_type = self._output_preference_type(preference_type)
             for character in characters:
                 if self.parent.is_english:

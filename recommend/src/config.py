@@ -63,6 +63,14 @@ class Config:
     def bundles(self) -> list[str]:
         return self.parser.getlist('bundles', 'bundles')
 
+    @staticmethod
+    def _get_opt_name(name: str) -> str:
+        return name.lower().replace(' ', '_').replace("'", '')
+
     def bundle(self, en_name: str) -> list[str]:
-        opt_name = en_name.lower().replace(' ', '_').replace("'", '')
+        opt_name = self._get_opt_name(en_name)
         return self.parser.getlist('bundles', opt_name)
+
+    def gifts(self, character_key: str) -> list[str]:
+        opt_name = self._get_opt_name(character_key)
+        return self.parser.getlist('gifts', opt_name)
