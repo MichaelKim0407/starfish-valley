@@ -91,6 +91,8 @@ class RemixedBundleProcessor(JsonFileProcessor, BundleProcessorMixin):
     FILENAME = os.path.join('Data', 'RandomBundles')
     USE_LOCALE = False
 
+    QUALITY = 'GQ '
+
     @property
     def _raw_bundles(self) -> typing.Iterator:
         for area in self._raw_data:
@@ -106,6 +108,8 @@ class RemixedBundleProcessor(JsonFileProcessor, BundleProcessorMixin):
         for elem in value.split(','):
             elem = elem.strip()
             count, item_en_name = elem.split(' ', maxsplit=1)
+            if item_en_name.startswith(self.QUALITY):
+                item_en_name = item_en_name[len(self.QUALITY):]
             item_id = self._fish_processor.get_id_from_en_name(item_en_name)
             if item_id is None:
                 continue
