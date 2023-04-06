@@ -123,8 +123,19 @@ class FishRecommendationScoreCalculator:
             return self._config.rec_weather_factor_rainy
 
     @cached_property
+    @returns(list)
+    def _bundles(self) -> list[dict]:
+        if not self.fish['bundles']:
+            return
+
+        for bundle in self.fish['bundles']:
+            if not bundle['en_name'] in self._config.bundles:
+                continue
+            yield bundle
+
+    @cached_property
     def _bundle_factor(self) -> float:
-        if self.fish['bundles']:
+        if self._bundles:
             return self._config.rec_bundle_factor
         else:
             return 0.0
@@ -183,6 +194,12 @@ class FishRecommendationScoreCalculator:
                 yield preference_type, character['name']
 
     @cached_property
+    @returns(list)
+    def _output_bundles(self) -> list[str]:
+        for bundle in self._bundles:
+            yield bundle['name']
+
+    @cached_property
     @returns(dict)
     def output(self) -> dict:
         yield 'Name', self.fish['name']
@@ -190,6 +207,8 @@ class FishRecommendationScoreCalculator:
         yield 'Locations', self._output_locations
         yield 'Hours', self.fish['time_ranges']
         yield from self._output_gifts.items()
+        if self._bundles:
+            yield 'Bundles', self._output_bundles
 
     @cached_property
     @returns(list)
@@ -218,6 +237,15 @@ class FishRecommendationScoreCalculator:
                 yield preference_type, c
 
     @cached_property
+    @returns(list)
+    def _output_bundles_verbose(self) -> list[str]:
+        for bundle in self._bundles:
+            yield {
+                'Name': bundle['name'],
+                'English name': bundle['en_name'],
+            }
+
+    @cached_property
     @returns(dict)
     def output_verbose(self) -> dict:
         yield 'ID', self.fish['id']
@@ -235,3 +263,6 @@ class FishRecommendationScoreCalculator:
         yield 'Hours', self.output['Hours']
 
         yield from self._output_gifts_verbose.items()
+
+        if self._bundles:
+            yield 'Bundles', self._output_bundles_verbose

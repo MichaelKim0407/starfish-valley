@@ -11,7 +11,7 @@ class Config:
     @staticmethod
     @returns(list)
     def _getlist(value: str) -> list[str]:
-        for s in value.split():
+        for s in value.splitlines():
             s = s.strip()
             if not s:
                 continue
@@ -58,3 +58,7 @@ class Config:
     @cached_property
     def rec_gift_factor(self) -> float:
         return self.parser.getfloat('recommendation', 'gift_factor')
+
+    @cached_property
+    def bundles(self) -> list[str]:
+        return self.parser.getlist('bundles', 'bundles')
