@@ -59,6 +59,10 @@ class FishRecommendationScoreCalculator:
     def _config(self) -> Config:
         return self.parent.config
 
+    @property
+    def _fish_id(self) -> str:
+        return self.fish['id']
+
     def _skip_rainy_winter(self, location: dict) -> bool:
         if self._config.winter_rain_totem:
             return False
@@ -132,7 +136,7 @@ class FishRecommendationScoreCalculator:
             bundle_en_name = bundle['en_name']
             if bundle_en_name not in self._config.bundles:
                 continue
-            if self.fish['id'] not in self._config.bundle(bundle_en_name):
+            if self._fish_id not in self._config.bundle(bundle_en_name):
                 continue
             yield bundle
 
@@ -151,7 +155,7 @@ class FishRecommendationScoreCalculator:
 
         for preference_type, characters in self.fish['gifts'].items():
             for character in characters:
-                if self.fish['id'] not in self._config.gifts(character['key']):
+                if self._fish_id not in self._config.gifts(character['key']):
                     continue
                 yield preference_type, character
 
@@ -259,7 +263,7 @@ class FishRecommendationScoreCalculator:
     @cached_property
     @returns(dict)
     def output_verbose(self) -> dict:
-        yield 'ID', self.fish['id']
+        yield 'ID', self._fish_id
         yield 'Name', self.output['Name']
         if not self.parent.is_english:
             yield 'English name', self.fish['en_name']
