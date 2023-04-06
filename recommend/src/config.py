@@ -34,3 +34,23 @@ class Config:
     @cached_property
     def fishing_level(self) -> int:
         return self.parser.getint('progress', 'fishing_level')
+
+    @cached_property
+    def rec_season_factor(self) -> float:
+        return self.parser.getfloat('recommendation', 'season_factor')
+
+    @cached_property
+    def rec_weather_factor_sunny(self) -> float:
+        return self.parser.getfloat('recommendation', 'weather_factor_sunny')
+
+    @cached_property
+    def rec_weather_factor_rainy(self) -> float:
+        return self.parser.getfloat('recommendation', 'weather_factor_rainy')
+
+    @cached_property
+    def rec_bundle_factor(self) -> float:
+        return self.parser.getfloat('recommendation', 'bundle_factor')
+
+    @cached_property
+    def rec_gift_factor(self) -> float:
+        return self.parser.getfloat('recommendation', 'gift_factor')
