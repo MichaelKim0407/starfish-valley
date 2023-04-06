@@ -4,6 +4,7 @@ from functools import cached_property
 from returns import returns
 
 from config import Config
+from utils import merge
 
 
 class RecommendationGenerator:
@@ -21,63 +22,16 @@ class RecommendationGenerator:
     def is_english(self) -> bool:
         return self._game_data['lang_code'] is None
 
-    def _is_location_allowed(self, location) -> bool:
-        if location['season'] != self.season:
-            return False
-        if location['key'] not in self.config.unlocked_areas:
-            return False
-        return True
-
-    @returns(list)
-    def _allowed_locations(self, locations: list[dict]) -> list[dict]:
-        if not locations:
-            return
-
-        for location in locations:
-            if not self._is_location_allowed(location):
-                continue
-            yield location
-
-    @returns(set)
-    def _available_seasons(self, locations: list[dict]) -> set[str]:
-        if not locations:
-            return
-
-        for location in locations:
-            yield location['season']
-
-    def _prepare_fish(self, fish: dict):
-        fish['allowed_locations'] = self._allowed_locations(fish['locations'])
-        fish['available_seasons'] = self._available_seasons(fish['locations'])
-
     @cached_property
     @returns(dict)
-    def _all_fish(self) -> dict[str, dict]:
+    def _fish(self) -> dict[str, dict]:
         for fish_id, fish in self._game_data['fish'].items():
-            self._prepare_fish(fish)
-            yield fish_id, fish
-
-    def _is_fish_allowed(self, fish: dict) -> bool:
-        if self.config.fishing_level < fish['min_level']:
-            return False
-        if self.weather not in fish['weather']:
-            return False
-        if not fish['allowed_locations']:
-            return False
-        return True
-
-    @cached_property
-    @returns(dict)
-    def _allowed_fish(self) -> dict[str, dict]:
-        for fish_id, fish in self._all_fish.items():
-            if not self._is_fish_allowed(fish):
-                continue
             yield fish_id, fish
 
     @cached_property
     @returns(lambda iterable: sorted(iterable, key=FishRecommendationScoreCalculator.sort_key))
     def _scores(self) -> list['FishRecommendationScoreCalculator']:
-        for fish_id, fish in self._allowed_fish.items():
+        for fish_id, fish in self._fish.items():
             yield FishRecommendationScoreCalculator(self, fish)
 
     def __getitem__(self, item):
@@ -106,8 +60,43 @@ class FishRecommendationScoreCalculator:
         return self.parent.config
 
     @cached_property
+    @returns(list)
+    def _unlocked_locations(self) -> list[dict]:
+        if not self.fish['locations']:
+            return
+
+        for location in self.fish['locations']:
+            if location['key'] not in self._config.unlocked_areas:
+                continue
+            yield location
+
+    @cached_property
+    @returns(list)
+    def _appearing_locations(self) -> list[dict]:
+        for location in self._unlocked_locations:
+            if location['season'] != self.parent.season:
+                continue
+            yield location
+
+    @cached_property
+    def _appearing(self) -> bool:
+        if self._config.fishing_level < self.fish['min_level']:
+            return False
+        if self.parent.weather not in self.fish['weather']:
+            return False
+        if not self._appearing_locations:
+            return False
+        return True
+
+    @cached_property
+    @returns(set)
+    def _available_seasons(self) -> set[str]:
+        for location in self.fish['locations']:
+            yield location['season']
+
+    @cached_property
     def _season_factor(self) -> float:
-        return self._config.rec_season_factor * (4 - len(self.fish['available_seasons']))
+        return self._config.rec_season_factor * (4 - len(self._available_seasons))
 
     @cached_property
     def _weather_factor(self) -> float:
@@ -135,6 +124,9 @@ class FishRecommendationScoreCalculator:
     @cached_property
     @returns(dict)
     def factors(self) -> dict[str, float]:
+        if not self._appearing:
+            return
+
         for factor_name in self.FACTORS:
             factor_attr = f'_{factor_name}_factor'
             factor_score = getattr(self, factor_attr)
@@ -145,6 +137,10 @@ class FishRecommendationScoreCalculator:
     @cached_property
     @returns(sum)
     def score(self) -> float:
+        if not self._appearing:
+            yield -1.0
+            return
+
         yield from self.factors.values()
 
     @staticmethod
@@ -152,26 +148,59 @@ class FishRecommendationScoreCalculator:
         return -item.score, item.fish['en_name']
 
     @cached_property
+    @returns(list)
+    def _output_locations(self) -> list[str]:
+        for location in self._appearing_locations:
+            yield location['name']
+
+    @staticmethod
+    def _output_preference_type(preference_type: str) -> str:
+        return preference_type.rstrip('s').capitalize() + 'd by'
+
+    @cached_property
+    @returns(merge)
+    def _output_gifts(self) -> dict[list[str]]:
+        if not self.fish['gifts']:
+            return
+        for preference_type, characters in self.fish['gifts'].items():
+            preference_type = self._output_preference_type(preference_type)
+            for character in characters:
+                yield preference_type, character['name']
+
+    @cached_property
     @returns(dict)
     def output(self) -> dict:
         yield 'Name', self.fish['name']
         yield 'Score', self.score
-        yield 'Locations', [
-            location['name']
-            for location in self.fish['allowed_locations']
-        ]
+        yield 'Locations', self._output_locations
         yield 'Hours', self.fish['time_ranges']
-        if self.fish['gifts']:
-            if 'loves' in self.fish['gifts']:
-                yield 'Loved by', [
-                    character['name']
-                    for character in self.fish['gifts']['loves']
-                ]
-            if 'likes' in self.fish['gifts']:
-                yield 'Liked by', [
-                    character['name']
-                    for character in self.fish['gifts']['likes']
-                ]
+        yield from self._output_gifts.items()
+
+    @cached_property
+    @returns(list)
+    def _output_locations_verbose(self) -> list[dict]:
+        for location in self._appearing_locations:
+            yield {
+                'Name': location['name'],
+                'Key': location['key'],
+            }
+
+    @cached_property
+    @returns(merge)
+    def _output_gifts_verbose(self) -> dict[list[str]]:
+        if not self.fish['gifts']:
+            return
+        for preference_type, characters in self.fish['gifts'].items():
+            preference_type = self._output_preference_type(preference_type)
+            for character in characters:
+                if self.parent.is_english:
+                    c = character['name']
+                else:
+                    c = {
+                        'Name': character['name'],
+                        'English name': character['key'],
+                    }
+                yield preference_type, c
 
     @cached_property
     @returns(dict)
@@ -184,36 +213,8 @@ class FishRecommendationScoreCalculator:
         yield 'Score', self.output['Score']
         yield 'Factors', self.factors
 
-        yield 'Locations', [
-            {
-                'Name': location['name'],
-                'Key': location['key'],
-            }
-            for location in self.fish['allowed_locations']
-        ]
+        yield 'Locations', self._output_locations_verbose
 
         yield 'Hours', self.output['Hours']
 
-        if self.fish['gifts']:
-            if 'loves' in self.fish['gifts']:
-                if self.parent.is_english:
-                    yield 'Loved by', self.output['Loved by']
-                else:
-                    yield 'Loved by', [
-                        {
-                            'Name': character['name'],
-                            'English name': character['key'],
-                        }
-                        for character in self.fish['gifts']['loves']
-                    ]
-            if 'likes' in self.fish['gifts']:
-                if self.parent.is_english:
-                    yield 'Liked by', self.output['Liked by']
-                else:
-                    yield 'Liked by', [
-                        {
-                            'Name': character['name'],
-                            'English name': character['key'],
-                        }
-                        for character in self.fish['gifts']['likes']
-                    ]
+        yield from self._output_gifts_verbose.items()
