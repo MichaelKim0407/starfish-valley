@@ -36,6 +36,10 @@ class Config:
         return self.parser.getint('progress', 'fishing_level')
 
     @cached_property
+    def winter_rain_totem(self) -> int:
+        return self.parser.getboolean('progress', 'winter_rain_totem')
+
+    @cached_property
     def rec_season_factor(self) -> float:
         return self.parser.getfloat('recommendation', 'season_factor')
 

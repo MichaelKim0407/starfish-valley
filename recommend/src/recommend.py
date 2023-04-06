@@ -59,6 +59,17 @@ class FishRecommendationScoreCalculator:
     def _config(self) -> Config:
         return self.parent.config
 
+    def _skip_rainy_winter(self, location: dict) -> bool:
+        if self._config.winter_rain_totem:
+            return False
+        if location['key'].startswith('Island'):
+            return False
+        if location['season'] != 'winter':
+            return False
+        if 'sunny' in self.fish['weather']:
+            return False
+        return True
+
     @cached_property
     @returns(list)
     def _unlocked_locations(self) -> list[dict]:
@@ -67,6 +78,8 @@ class FishRecommendationScoreCalculator:
 
         for location in self.fish['locations']:
             if location['key'] not in self._config.unlocked_areas:
+                continue
+            if self._skip_rainy_winter(location):
                 continue
             yield location
 
