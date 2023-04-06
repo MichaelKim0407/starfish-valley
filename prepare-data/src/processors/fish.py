@@ -20,6 +20,11 @@ class FishProcessor(JsonFileProcessor):
     }
 
     DIFFICULTY_SKIP = {'trap'}
+    ID_SKIP = {
+        '152',  # Seaweed
+        '153',  # Green Algae
+        '157',  # White Algae
+    }
 
     RESULT_KEY = 'fish'
 
@@ -83,11 +88,13 @@ class FishProcessor(JsonFileProcessor):
     @cached_property
     @returns(dict)
     def _fish(self) -> dict[t.Fish.Id, t.Fish]:
-        for key, value in self._raw_data.items():
-            fish = self._parse_fish(key, value)
+        for fish_id, value in self._raw_data.items():
+            if fish_id in self.ID_SKIP:
+                continue
+            fish = self._parse_fish(fish_id, value)
             if fish is None:
                 continue
-            yield key, fish
+            yield fish_id, fish
 
     def __contains__(self, fish_id: t.Fish.Id) -> bool:
         return fish_id in self._fish
