@@ -91,7 +91,8 @@ class FishRecommendationScoreCalculator:
     @cached_property
     @returns(set)
     def _available_seasons(self) -> set[str]:
-        for location in self.fish['locations']:
+        # use unlocked locations instead of all locations
+        for location in self._unlocked_locations:
             yield location['season']
 
     @cached_property
