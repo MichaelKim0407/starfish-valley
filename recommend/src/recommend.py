@@ -161,6 +161,17 @@ class FishRecommendationScoreCalculator:
             for location in self.fish['allowed_locations']
         ]
         yield 'Hours', self.fish['time_ranges']
+        if self.fish['gifts']:
+            if 'loves' in self.fish['gifts']:
+                yield 'Loved by', [
+                    character['name']
+                    for character in self.fish['gifts']['loves']
+                ]
+            if 'likes' in self.fish['gifts']:
+                yield 'Liked by', [
+                    character['name']
+                    for character in self.fish['gifts']['likes']
+                ]
 
     @cached_property
     @returns(dict)
@@ -182,3 +193,27 @@ class FishRecommendationScoreCalculator:
         ]
 
         yield 'Hours', self.output['Hours']
+
+        if self.fish['gifts']:
+            if 'loves' in self.fish['gifts']:
+                if self.parent.is_english:
+                    yield 'Loved by', self.output['Loved by']
+                else:
+                    yield 'Loved by', [
+                        {
+                            'Name': character['name'],
+                            'English name': character['key'],
+                        }
+                        for character in self.fish['gifts']['loves']
+                    ]
+            if 'likes' in self.fish['gifts']:
+                if self.parent.is_english:
+                    yield 'Liked by', self.output['Liked by']
+                else:
+                    yield 'Liked by', [
+                        {
+                            'Name': character['name'],
+                            'English name': character['key'],
+                        }
+                        for character in self.fish['gifts']['likes']
+                    ]
