@@ -43,12 +43,14 @@ class FishRecommendationScoreCalculator:
     WEATHER = 'weather'
     BUNDLE = 'bundle'
     GIFT = 'gift'
+    FAVORITE = 'favorite'
 
     FACTORS = (
         SEASON,
         WEATHER,
         BUNDLE,
         GIFT,
+        FAVORITE,
     )
 
     def __init__(self, parent: RecommendationGenerator, fish: dict):
@@ -165,6 +167,10 @@ class FishRecommendationScoreCalculator:
             return self._config.rec_gift_factor
         else:
             return 0.0
+
+    @cached_property
+    def _favorite_factor(self) -> float:
+        return self._config.favorite(self._fish_id)
 
     @cached_property
     @returns(dict)

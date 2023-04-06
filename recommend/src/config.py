@@ -74,3 +74,6 @@ class Config:
     def gifts(self, character_key: str) -> list[str]:
         opt_name = self._get_opt_name(character_key)
         return self.parser.getlist('gifts', opt_name)
+
+    def favorite(self, fish_id: str) -> float:
+        return self.parser.getfloat('favorites', fish_id, fallback=0.0)
