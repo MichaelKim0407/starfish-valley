@@ -102,6 +102,7 @@ class FishRecommendationScoreCalculator:
         return True
 
     @cached_property
+    @returns(lambda items: sorted(items, key=('spring', 'summer', 'fall', 'winter').index))
     @returns(set)
     def _available_seasons(self) -> set[str]:
         # use unlocked locations instead of all locations
