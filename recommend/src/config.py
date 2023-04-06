@@ -62,3 +62,7 @@ class Config:
     @cached_property
     def bundles(self) -> list[str]:
         return self.parser.getlist('bundles', 'bundles')
+
+    def bundle(self, en_name: str) -> list[str]:
+        opt_name = en_name.lower().replace(' ', '_').replace("'", '')
+        return self.parser.getlist('bundles', opt_name)

@@ -129,7 +129,10 @@ class FishRecommendationScoreCalculator:
             return
 
         for bundle in self.fish['bundles']:
-            if not bundle['en_name'] in self._config.bundles:
+            bundle_en_name = bundle['en_name']
+            if bundle_en_name not in self._config.bundles:
+                continue
+            if self.fish['id'] not in self._config.bundle(bundle_en_name):
                 continue
             yield bundle
 
