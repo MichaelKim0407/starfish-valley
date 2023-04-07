@@ -15,12 +15,15 @@ def main(args=None):
         help='Weather',
     )
     parser.add_argument(
-        '--top', '-n', type=int, default=-1,
-        help='Only display top n items. Can be used with --min-score (whichever is more limiting).',
+        '--top', '-n', type=int, default=None,
+        help='Only display top n items. '
+             'If there is a draw, all items with the same score will be displayed. '
+             'Can be used with --min-score (whichever is more limiting).',
     )
     parser.add_argument(
-        '--min-score', '-m', type=float, default=0.0,
-        help='Only display items that has at least m score. Can be used with --top (whichever is more limiting).',
+        '--min-score', '-m', type=float, default=None,
+        help='Only display items that has at least m score. '
+             'Can be used with --top (whichever is more limiting).',
     )
     parser.add_argument(
         '--verbose', '-v', action='store_true',
@@ -35,9 +38,7 @@ def main(args=None):
     conf = Config(args.config_file)
     recommend_gen = RecommendationGenerator(conf, args.season, args.weather)
     from pprint import pprint
-    for fish in recommend_gen[:args.top]:
-        if fish.score < args.min_score:
-            continue
+    for fish in recommend_gen.get(top=args.top, min_score=args.min_score):
         pprint(
             fish.output_verbose if args.verbose else fish.output,
             sort_dicts=False,

@@ -1,4 +1,5 @@
 import json
+import typing
 from functools import cached_property
 
 from returns import returns
@@ -34,8 +35,25 @@ class RecommendationGenerator:
         for fish_id, fish in self._fish.items():
             yield FishRecommendationScoreCalculator(self, fish)
 
-    def __getitem__(self, item):
-        return self._scores[item]
+    def get(self, *, top: int = None, min_score: float = None) -> typing.Iterator['FishRecommendationScoreCalculator']:
+        if top is not None and top <= 0:
+            return
+
+        count = 0
+        last_score = None
+
+        for score in self._scores:
+            if min_score is not None and score.score < min_score:
+                return
+
+            if top is not None:
+                if count >= top:
+                    if score.score < last_score:
+                        return
+
+            yield score
+            count += 1
+            last_score = score.score
 
 
 class FishRecommendationScoreCalculator:
