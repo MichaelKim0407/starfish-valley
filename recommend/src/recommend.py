@@ -33,7 +33,10 @@ class RecommendationGenerator:
     @returns(lambda iterable: sorted(iterable, key=FishRecommendationScoreCalculator.sort_key))
     def _scores(self) -> list['FishRecommendationScoreCalculator']:
         for fish_id, fish in self._fish.items():
-            yield FishRecommendationScoreCalculator(self, fish)
+            score = FishRecommendationScoreCalculator(self, fish)
+            if not score:
+                continue
+            yield score
 
     def get(self, *, top: int = None, min_score: float = None) -> typing.Iterator['FishRecommendationScoreCalculator']:
         if top is not None and top <= 0:
@@ -125,6 +128,9 @@ class FishRecommendationScoreCalculator:
             return False
         return True
 
+    def __bool__(self) -> bool:
+        return self._appearing
+
     @cached_property
     @returns(lambda items: sorted(items, key=('spring', 'summer', 'fall', 'winter').index))
     @returns(set)
@@ -207,7 +213,6 @@ class FishRecommendationScoreCalculator:
     @returns(sum)
     def score(self) -> float:
         if not self._appearing:
-            yield -1.0
             return
 
         yield from self.factors.values()
