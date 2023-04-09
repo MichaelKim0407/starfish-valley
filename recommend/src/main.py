@@ -2,6 +2,8 @@ import typing
 from argparse import ArgumentParser
 from functools import cached_property
 
+from returns import returns
+
 from config import Config
 from recommend import RecommendationGenerator, FishRecommendationScoreCalculator
 from rendering import RenderTable
@@ -77,18 +79,44 @@ class Main:
 
     @property
     def _output(self) -> typing.Iterator[dict]:
-        if not self.verbose:
-            for fish in self._data:
-                yield fish.output
+        for fish in self._data:
+            yield fish.output(verbose=self.verbose, table=True)
 
-        else:
-            for fish in self._data:
-                yield fish.output_verbose
+    @staticmethod
+    @returns(list)
+    def _format_locations_verbose(locations: list[dict]) -> list[str]:
+        for location in locations:
+            yield f"[{location['Key']}] {location['Name']}"
+
+    @staticmethod
+    @returns(list)
+    def _format_translatable_names_verbose(names: list[dict[str, str]] | dict[str, str]) -> list[str]:
+        if isinstance(names, dict):
+            names = [names]
+
+        for name in names:
+            if 'English name' in name:
+                yield f"[{name['English name']}] {name['Name']}"
+            else:
+                yield name['Name']
+
+    @cached_property
+    @returns(dict)
+    def _formatters(self) -> dict:
+        if not self.verbose:
+            return
+
+        yield 'Name', self._format_translatable_names_verbose
+        yield 'Locations', self._format_locations_verbose
+        yield 'Bundles', self._format_translatable_names_verbose
+        yield 'Loved by', self._format_translatable_names_verbose
+        yield 'Liked by', self._format_translatable_names_verbose
 
     @cached_property
     def _table_renderer(self) -> RenderTable:
         return RenderTable(
             self._output,
+            formatters=self._formatters,
         )
 
     def __call__(self):

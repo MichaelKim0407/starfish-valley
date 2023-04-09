@@ -221,40 +221,21 @@ class FishRecommendationScoreCalculator:
     def sort_key(item: 'FishRecommendationScoreCalculator'):
         return -item.score, item.fish['en_name']
 
+    @returns(dict)
+    def _get_name_verbose(self, name: str, en_name: str) -> dict[str, str]:
+        yield 'Name', name
+        if not self.parent.is_english:
+            yield 'English name', en_name
+
+    @cached_property
+    def _output_name_verbose(self) -> dict[str, str]:
+        return self._get_name_verbose(self.fish['name'], self.fish['en_name'])
+
     @cached_property
     @returns(list)
     def _output_locations(self) -> list[str]:
         for location in self._appearing_locations:
             yield location['name']
-
-    @staticmethod
-    def _output_preference_type(preference_type: str) -> str:
-        return preference_type.rstrip('s').capitalize() + 'd by'
-
-    @cached_property
-    @returns(merge)
-    def _output_gifts(self) -> dict[list[str]]:
-        for preference_type, characters in self._gifts.items():
-            preference_type = self._output_preference_type(preference_type)
-            for character in characters:
-                yield preference_type, character['name']
-
-    @cached_property
-    @returns(list)
-    def _output_bundles(self) -> list[str]:
-        for bundle in self._bundles:
-            yield bundle['name']
-
-    @cached_property
-    @returns(dict)
-    def output(self) -> dict:
-        yield 'Name', self.fish['name']
-        yield 'Score', self.score
-        yield 'Locations', self._output_locations
-        yield 'Hours', self.fish['time_ranges']
-        yield from self._output_gifts.items()
-        if self._bundles:
-            yield 'Bundles', self._output_bundles
 
     @cached_property
     @returns(list)
@@ -265,48 +246,70 @@ class FishRecommendationScoreCalculator:
                 'Key': location['key'],
             }
 
+    @staticmethod
+    def _output_preference_type(preference_type: str) -> str:
+        return preference_type.rstrip('s').capitalize() + 'd by'
+
     @cached_property
     @returns(merge)
-    def _output_gifts_verbose(self) -> dict[list[str]]:
+    def _output_gifts(self) -> dict[str, list[str]]:
         for preference_type, characters in self._gifts.items():
             preference_type = self._output_preference_type(preference_type)
             for character in characters:
-                if self.parent.is_english:
-                    c = character['name']
-                else:
-                    c = {
-                        'Name': character['name'],
-                        'English name': character['key'],
-                    }
-                yield preference_type, c
+                yield preference_type, character['name']
+
+    @cached_property
+    @returns(merge)
+    def _output_gifts_verbose(self) -> dict[str, list[str]]:
+        for preference_type, characters in self._gifts.items():
+            preference_type = self._output_preference_type(preference_type)
+            for character in characters:
+                yield (
+                    preference_type,
+                    self._get_name_verbose(character['name'], character['key']),
+                )
+
+    @cached_property
+    @returns(list)
+    def _output_bundles(self) -> list[str]:
+        for bundle in self._bundles:
+            yield bundle['name']
 
     @cached_property
     @returns(list)
     def _output_bundles_verbose(self) -> list[str]:
         for bundle in self._bundles:
-            yield {
-                'Name': bundle['name'],
-                'English name': bundle['en_name'],
-            }
+            yield self._get_name_verbose(bundle['name'], bundle['en_name'])
 
-    @cached_property
     @returns(dict)
-    def output_verbose(self) -> dict:
-        yield 'ID', self._fish_id
-        yield 'Name', self.output['Name']
-        if not self.parent.is_english:
-            yield 'English name', self.fish['en_name']
-        yield 'Required level', self.fish['min_level']
+    def output(self, *, verbose: bool = False, table: bool = False) -> dict:
+        if verbose:
+            yield 'ID', self._fish_id
+            yield 'Name', self._output_name_verbose
+        else:
+            yield 'Name', self.fish['name']
 
-        yield 'Score', self.output['Score']
-        yield 'Factors', self.factors
+        yield 'Score', self.score
+        if verbose:
+            yield 'Factors', self.factors
 
-        yield 'Locations', self._output_locations_verbose
-        yield 'Available seasons', self._available_seasons
+        if verbose:
+            yield 'Locations', self._output_locations_verbose
+            yield 'Available seasons', self._available_seasons
+        else:
+            yield 'Locations', self._output_locations
 
-        yield 'Hours', self.output['Hours']
+        yield 'Hours', self.fish['time_ranges']
 
-        yield from self._output_gifts_verbose.items()
+        output_gifts = self._output_gifts_verbose if verbose else self._output_gifts
+        if table:
+            output_gifts = {
+                'Loved by': output_gifts.get('Loved by'),
+                'Liked by': output_gifts.get('Liked by'),
+            }
+        yield from output_gifts.items()
 
         if self._bundles:
-            yield 'Bundles', self._output_bundles_verbose
+            yield 'Bundles', self._output_bundles_verbose if verbose else self._output_bundles
+        elif table:
+            yield 'Bundles', []

@@ -25,29 +25,60 @@ class StringWidthCalculator:
 
 string_width = StringWidthCalculator.get
 
+FORMATTER = typing.Callable[[typing.Any], str | list[str]]
+
 
 class TableColumn:
-    def __init__(self, name: str, *, formatter=None):
+    @staticmethod
+    def default_formatter(value) -> str | list[str]:
+        if isinstance(value, list):
+            return [str(elem) for elem in value]
+        elif isinstance(value, dict):
+            return [f'{key}: {val}' for key, val in value.items()]
+        else:
+            return str(value)
+
+    def __init__(
+            self,
+            name: str,
+            *,
+            formatter: FORMATTER = None,
+    ):
         self.name = name
         if formatter is None:
-            formatter = str
+            formatter = self.default_formatter
         self._formatter = formatter
         self._width = string_width(name)
 
-    def render(self, value) -> str:
+    def render(self, value) -> list[str]:
         if value is None:
             value_s = ''
         else:
             value_s = self._formatter(value)
-        self._width = max(self._width, string_width(value_s))
+
+        if isinstance(value_s, str):
+            value_s = [value_s]
+
+        for value_s_row in value_s:
+            self._width = max(self._width, string_width(value_s_row))
         return value_s
 
-    def format(self, s: str) -> str:
+    def format(self, s: str | None) -> str:
+        if s is None:
+            s = ''
         return s + ' ' * (self._width - string_width(s))
+
+    @property
+    def separator(self) -> str:
+        return '-' * self._width
 
 
 class TableColumns:
-    def __init__(self, *, formatters=None):
+    def __init__(
+            self,
+            *,
+            formatters: dict[str, FORMATTER] = None,
+    ):
         self._columns: list[TableColumn] = []
         if formatters is None:
             formatters = {}
@@ -60,7 +91,8 @@ class TableColumns:
         return False
 
     @returns(list)
-    def render(self, item: dict) -> list[str]:
+    @returns(lambda x: zip_longest(*x))
+    def render(self, item: dict) -> list[list[str]]:
         for col in self._columns:
             value = item.get(col.name)
             yield col.render(value)
@@ -82,20 +114,24 @@ class TableColumns:
     def __str__(self) -> str:
         return self.format(col.name for col in self._columns)
 
+    @property
+    def separator(self) -> str:
+        return self.format(col.separator for col in self._columns)
+
 
 class RenderTable:
     def __init__(
             self,
             data: typing.Iterable[dict],
             *,
-            formatters=None,
+            formatters: dict[str, FORMATTER] = None,
     ):
         self._data = iter(data)
         self._columns = TableColumns(formatters=formatters)
 
     @cached_property
     @returns(list)
-    def _rendered_data(self) -> list[list[str]]:
+    def _rendered_data(self) -> list[list[list[str]]]:
         for item in self._data:
             yield self._columns.render(item)
 
@@ -105,7 +141,9 @@ class RenderTable:
         _ = self._rendered_data
         yield str(self._columns)
         for row in self._rendered_data:
-            yield self._columns.format(row)
+            yield self._columns.separator
+            for row_row in row:
+                yield self._columns.format(row_row)
 
     def __str__(self) -> str:
         return self._s
