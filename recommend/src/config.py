@@ -60,6 +60,10 @@ class Config:
         return self.parser.getfloat('recommendation', 'gift_factor')
 
     @cached_property
+    def rec_difficulty_factor(self) -> float:
+        return self.parser.getfloat('recommendation', 'difficulty_factor')
+
+    @cached_property
     def bundles(self) -> list[str]:
         return self.parser.getlist('bundles', 'bundles')
 

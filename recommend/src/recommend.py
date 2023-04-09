@@ -64,6 +64,7 @@ class FishRecommendationScoreCalculator:
     WEATHER = 'weather'
     BUNDLE = 'bundle'
     GIFT = 'gift'
+    DIFFICULTY = 'difficulty'
     FAVORITE = 'favorite'
 
     FACTORS = (
@@ -71,6 +72,7 @@ class FishRecommendationScoreCalculator:
         WEATHER,
         BUNDLE,
         GIFT,
+        DIFFICULTY,
         FAVORITE,
     )
 
@@ -192,6 +194,15 @@ class FishRecommendationScoreCalculator:
         else:
             return 0.0
 
+    @property
+    def _difficulty(self) -> int:
+        return self.fish['difficulty']
+
+    @cached_property
+    @returns(lambda x: round(x, 6))  # this is to stop float point precision problems causing x.00000000000001
+    def _difficulty_factor(self) -> float:
+        return self._difficulty * self._config.rec_difficulty_factor
+
     @cached_property
     def _favorite_factor(self) -> float:
         return self._config.favorite(self._fish_id)
@@ -230,6 +241,10 @@ class FishRecommendationScoreCalculator:
     @cached_property
     def _output_name_verbose(self) -> dict[str, str]:
         return self._get_name_verbose(self.fish['name'], self.fish['en_name'])
+
+    @cached_property
+    def _output_difficulty(self) -> tuple[int, str]:
+        return self._difficulty, self.fish['behavior']
 
     @cached_property
     @returns(list)
@@ -293,6 +308,7 @@ class FishRecommendationScoreCalculator:
         if verbose:
             yield 'ID', self._fish_id
             yield 'Name', self._output_name_verbose
+            yield 'Difficulty', self._output_difficulty
         else:
             yield 'Name', self.fish['name']
 
