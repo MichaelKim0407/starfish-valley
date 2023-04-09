@@ -296,6 +296,7 @@ class FishRecommendationScoreCalculator:
         if verbose:
             yield 'Locations', self._output_locations_verbose
             yield 'Available seasons', self._available_seasons
+            yield 'Available weathers', self.fish['weather']
         else:
             yield 'Locations', self._output_locations
 
