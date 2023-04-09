@@ -6,6 +6,8 @@ Starfish Valley is here to help you.
 
 Simply tell it the season and weather of the day and it will recommend you fish to catch!
 
+![screenshot](docs/screenshot.png)
+
 ## Project status
 
 * I intend to make a web UI, but I also want to spend time actually playing the game,
