@@ -283,6 +283,13 @@ class FishRecommendationScoreCalculator:
 
     @returns(dict)
     def output(self, *, verbose: bool = False, table: bool = False) -> dict:
+        if table:
+            def table_col_split(col_name: str):
+                return tuple(col_name.split())
+        else:
+            def table_col_split(col_name: str):
+                return col_name
+
         if verbose:
             yield 'ID', self._fish_id
             yield 'Name', self._output_name_verbose
@@ -295,8 +302,8 @@ class FishRecommendationScoreCalculator:
 
         if verbose:
             yield 'Locations', self._output_locations_verbose
-            yield 'Available seasons', self._available_seasons
-            yield 'Available weathers', self.fish['weather']
+            yield table_col_split('Available seasons'), self._available_seasons
+            yield table_col_split('Available weathers'), self.fish['weather']
         else:
             yield 'Locations', self._output_locations
 

@@ -31,7 +31,7 @@ FORMATTER = typing.Callable[[typing.Any], str | list[str]]
 class TableColumn:
     @staticmethod
     def default_formatter(value) -> str | list[str]:
-        if isinstance(value, list):
+        if isinstance(value, (list, tuple)):
             return [str(elem) for elem in value]
         elif isinstance(value, dict):
             return [f'{key}: {val}' for key, val in value.items()]
@@ -40,15 +40,17 @@ class TableColumn:
 
     def __init__(
             self,
-            name: str,
+            name: str | tuple[str],
             *,
             formatter: FORMATTER = None,
     ):
         self.name = name
-        if formatter is None:
-            formatter = self.default_formatter
-        self._formatter = formatter
-        self._width = string_width(name)
+        self._width = 0
+        self._formatter = self.default_formatter
+        self.print_name: list[str] = self.render(name)
+
+        if formatter is not None:
+            self._formatter = formatter
 
     def render(self, value) -> list[str]:
         if value is None:
@@ -111,8 +113,17 @@ class TableColumns:
             yield col.format(elem)
         yield ''
 
-    def __str__(self) -> str:
-        return self.format(col.name for col in self._columns)
+    @property
+    @returns(list)
+    @returns(lambda x: zip_longest(*x))
+    def _header(self) -> list[list[str]]:
+        for col in self._columns:
+            yield col.print_name
+
+    @property
+    def header(self) -> list[str]:
+        for header_row in self._header:
+            yield self.format(header_row)
 
     @property
     def separator(self) -> str:
@@ -139,7 +150,7 @@ class RenderTable:
     @returns('\n'.join)
     def _s(self) -> str:
         _ = self._rendered_data
-        yield str(self._columns)
+        yield from self._columns.header
         for row in self._rendered_data:
             yield self._columns.separator
             for row_row in row:
