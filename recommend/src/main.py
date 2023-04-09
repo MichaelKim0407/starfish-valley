@@ -1,6 +1,8 @@
+import json
 import typing
 from argparse import ArgumentParser
 from functools import cached_property
+from pprint import pprint
 
 from returns import returns
 
@@ -11,6 +13,10 @@ from rendering import RenderTable
 
 class Main:
     _parser = None
+
+    FORMAT_TABLE = 'table'
+    FORMAT_PPRINT = 'pprint'
+    FORMAT_JSON = 'json'
 
     @classmethod
     def parser(cls) -> ArgumentParser:
@@ -47,6 +53,11 @@ class Main:
             '--verbose', '-v', action='store_true',
             help='Print additional information, such as fish ID, score details, English names, etc.',
         )
+
+        parser.add_argument(
+            '--format', '-f', choices=(cls.FORMAT_TABLE, cls.FORMAT_PPRINT, cls.FORMAT_JSON), default=cls.FORMAT_TABLE,
+            help=f'Output format. Default: {cls.FORMAT_TABLE}.',
+        )
         cls._parser = parser
         return parser
 
@@ -58,6 +69,7 @@ class Main:
     min_score: float | None
 
     verbose: bool
+    format: str
 
     def __init__(self, args=None):
         self._args = self.parser().parse_args(args)
@@ -80,7 +92,7 @@ class Main:
     @property
     def _output(self) -> typing.Iterator[dict]:
         for fish in self._data:
-            yield fish.output(verbose=self.verbose, table=True)
+            yield fish.output(verbose=self.verbose, table=self.format == self.FORMAT_TABLE)
 
     @staticmethod
     @returns(list)
@@ -119,8 +131,21 @@ class Main:
             formatters=self._formatters,
         )
 
+    def _pprint(self):
+        for item in self._output:
+            pprint(item)
+
+    def _print_json(self):
+        for item in self._output:
+            print(json.dumps(item, indent=2))
+
     def __call__(self):
-        print(self._table_renderer)
+        if self.format == self.FORMAT_TABLE:
+            print(self._table_renderer)
+        elif self.format == self.FORMAT_PPRINT:
+            self._pprint()
+        elif self.format == self.FORMAT_JSON:
+            self._print_json()
 
 
 if __name__ == '__main__':
